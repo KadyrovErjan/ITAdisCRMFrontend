@@ -1,0 +1,509 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* СВЕТЛАЯ ТЕМА (по умолчанию) */
+  :root {
+    /* Primary Colors - Зеленый акцент */
+    --color-primary-50: 239 251 244;
+    --color-primary-100: 216 243 227;
+    --color-primary-200: 179 232 199;
+    --color-primary-300: 125 213 160;
+    --color-primary-400: 69 185 120;
+    --color-primary-500: 33 155 91;
+    --color-primary-600: 21 131 72;
+    --color-primary-700: 17 105 58;
+    --color-primary-800: 13 81 46;
+    --color-primary-900: 10 62 36;
+    
+    /* Secondary Colors - Синий акцент */
+    --color-secondary-50: 239 246 255;
+    --color-secondary-100: 219 234 254;
+    --color-secondary-200: 191 219 254;
+    --color-secondary-300: 147 197 253;
+    --color-secondary-400: 96 165 250;
+    --color-secondary-500: 59 130 246;
+    --color-secondary-600: 37 99 235;
+    --color-secondary-700: 29 78 216;
+    --color-secondary-800: 30 64 175;
+    --color-secondary-900: 30 58 138;
+    
+    /* Accent Colors - Фиолетовый для выделения */
+    --color-accent-50: 250 245 255;
+    --color-accent-100: 243 232 255;
+    --color-accent-200: 233 213 255;
+    --color-accent-300: 216 180 254;
+    --color-accent-400: 192 132 252;
+    --color-accent-500: 168 85 247;
+    --color-accent-600: 147 51 234;
+    --color-accent-700: 126 34 206;
+    --color-accent-800: 107 33 168;
+    --color-accent-900: 88 28 135;
+    
+    /* Success - Зеленый для успеха */
+    --color-success-50: 240 253 244;
+    --color-success-100: 220 252 231;
+    --color-success-200: 187 247 208;
+    --color-success-300: 134 239 172;
+    --color-success-400: 74 222 128;
+    --color-success-500: 34 197 94;
+    --color-success-600: 22 163 74;
+    --color-success-700: 21 128 61;
+    --color-success-800: 22 101 52;
+    --color-success-900: 20 83 45;
+    
+    /* Warning - Янтарный для предупреждений */
+    --color-warning-50: 255 251 235;
+    --color-warning-100: 254 243 199;
+    --color-warning-200: 253 230 138;
+    --color-warning-300: 252 211 77;
+    --color-warning-400: 251 191 36;
+    --color-warning-500: 245 158 11;
+    --color-warning-600: 217 119 6;
+    --color-warning-700: 180 83 9;
+    --color-warning-800: 146 64 14;
+    --color-warning-900: 120 53 15;
+    
+    /* Error - Красный для ошибок */
+    --color-error-50: 254 242 242;
+    --color-error-100: 254 226 226;
+    --color-error-200: 254 202 202;
+    --color-error-300: 252 165 165;
+    --color-error-400: 248 113 113;
+    --color-error-500: 239 68 68;
+    --color-error-600: 220 38 38;
+    --color-error-700: 185 28 28;
+    --color-error-800: 153 27 27;
+    --color-error-900: 127 29 29;
+    
+    /* Neutral/Surface Colors */
+    --color-surface: 255 255 255;
+    --color-background: 249 250 251;
+    --color-muted: 243 244 246;
+    --color-border: 229 231 235;
+    --color-input: 255 255 255;
+    --color-card: 255 255 255;
+    
+    /* Text Colors */
+    --color-text-primary: 17 24 39;
+    --color-text-secondary: 75 85 99;
+    --color-text-muted: 156 163 175;
+    --color-text-inverse: 255 255 255;
+    
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+    --shadow-card: 0 10px 28px rgba(20, 88, 48, 0.08);
+    
+    /* Transitions */
+    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* ТЕМНАЯ ТЕМА */
+  .dark {
+    /* Primary Colors - остаются зеленые но темнее */
+    --color-primary-50: 10 62 36;
+    --color-primary-100: 13 81 46;
+    --color-primary-200: 17 105 58;
+    --color-primary-300: 21 131 72;
+    --color-primary-400: 33 155 91;
+    --color-primary-500: 69 185 120;
+    --color-primary-600: 125 213 160;
+    --color-primary-700: 179 232 199;
+    --color-primary-800: 216 243 227;
+    --color-primary-900: 239 251 244;
+    
+    /* Secondary Colors - синий темная версия */
+    --color-secondary-50: 30 58 138;
+    --color-secondary-100: 30 64 175;
+    --color-secondary-200: 29 78 216;
+    --color-secondary-300: 37 99 235;
+    --color-secondary-400: 59 130 246;
+    --color-secondary-500: 96 165 250;
+    --color-secondary-600: 147 197 253;
+    --color-secondary-700: 191 219 254;
+    --color-secondary-800: 219 234 254;
+    --color-secondary-900: 239 246 255;
+    
+    /* Accent Colors - фиолетовый темная версия */
+    --color-accent-50: 88 28 135;
+    --color-accent-100: 107 33 168;
+    --color-accent-200: 126 34 206;
+    --color-accent-300: 147 51 234;
+    --color-accent-400: 168 85 247;
+    --color-accent-500: 192 132 252;
+    --color-accent-600: 216 180 254;
+    --color-accent-700: 233 213 255;
+    --color-accent-800: 243 232 255;
+    --color-accent-900: 250 245 255;
+    
+    /* Success */
+    --color-success-50: 20 83 45;
+    --color-success-100: 22 101 52;
+    --color-success-200: 21 128 61;
+    --color-success-300: 22 163 74;
+    --color-success-400: 34 197 94;
+    --color-success-500: 74 222 128;
+    --color-success-600: 134 239 172;
+    --color-success-700: 187 247 208;
+    --color-success-800: 220 252 231;
+    --color-success-900: 240 253 244;
+    
+    /* Warning */
+    --color-warning-50: 120 53 15;
+    --color-warning-100: 146 64 14;
+    --color-warning-200: 180 83 9;
+    --color-warning-300: 217 119 6;
+    --color-warning-400: 245 158 11;
+    --color-warning-500: 251 191 36;
+    --color-warning-600: 252 211 77;
+    --color-warning-700: 253 230 138;
+    --color-warning-800: 254 243 199;
+    --color-warning-900: 255 251 235;
+    
+    /* Error */
+    --color-error-50: 127 29 29;
+    --color-error-100: 153 27 27;
+    --color-error-200: 185 28 28;
+    --color-error-300: 220 38 38;
+    --color-error-400: 239 68 68;
+    --color-error-500: 248 113 113;
+    --color-error-600: 252 165 165;
+    --color-error-700: 254 202 202;
+    --color-error-800: 254 226 226;
+    --color-error-900: 254 242 242;
+    
+    /* Neutral/Surface Colors */
+    --color-surface: 31 41 55;
+    --color-background: 17 24 39;
+    --color-muted: 55 65 81;
+    --color-border: 75 85 99;
+    --color-input: 31 41 55;
+    --color-card: 31 41 55;
+    
+    /* Text Colors */
+    --color-text-primary: 243 244 246;
+    --color-text-secondary: 209 213 219;
+    --color-text-muted: 156 163 175;
+    --color-text-inverse: 17 24 39;
+    
+    /* Shadows - более темные */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.3), 0 8px 10px -6px rgb(0 0 0 / 0.3);
+    --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.5);
+    --shadow-card: 0 10px 28px rgba(0, 0, 0, 0.4);
+  }
+  
+  * {
+    box-sizing: border-box;
+  }
+  
+  body {
+    margin: 0;
+    min-width: 320px;
+    background: rgb(var(--color-background));
+    color: rgb(var(--color-text-primary));
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color var(--transition-base), color var(--transition-base);
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+  }
+  
+  button, input, select, textarea {
+    font: inherit;
+  }
+  
+  ::selection {
+    background: rgb(var(--color-primary-200));
+    color: rgb(var(--color-primary-900));
+  }
+  
+  .dark ::selection {
+    background: rgb(var(--color-primary-700));
+    color: rgb(var(--color-primary-100));
+  }
+}
+
+@layer components {
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition duration-200 focus:outline-none focus:ring-4 disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply bg-[#158348] text-white shadow-sm hover:bg-[#0d512e] focus:ring-[#158348]/20; }
+  .btn-success { @apply bg-[#39a96b] text-white shadow-sm hover:bg-[#267f4e] focus:ring-[#39a96b]/20; }
+  .btn-danger { @apply bg-[#c1443a] text-white hover:bg-[#a6362e] focus:ring-[#c1443a]/20; }
+  .btn-secondary { @apply border border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 focus:ring-slate-200; }
+  .card { @apply rounded-2xl border border-[#e1ebe4] bg-white shadow-[0_10px_28px_rgba(20,88,48,.05)]; }
+  .input { @apply w-full rounded-xl border border-[#dce8df] bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#39a96b] focus:ring-4 focus:ring-[#39a96b]/10; }
+  .label { @apply mb-1.5 block text-sm font-semibold text-slate-700; }
+  .page-title { @apply text-2xl font-extrabold text-[#123c28] sm:text-3xl; }
+  .page-subtitle { @apply mt-1 text-sm text-slate-500; }
+  .data-table { @apply min-w-full divide-y divide-slate-100; }
+  .data-table th { @apply bg-slate-50 px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500; }
+  .data-table td { @apply px-5 py-4 text-sm text-slate-600; }
+  .data-table tbody tr { @apply transition hover:bg-[#f4fbf6]; }
+}
+
+/* Unified visual language for the role pages retained from the API client. */
+.bg-blue-600,.bg-blue-500,.bg-indigo-500,.bg-purple-500 { background-color:#158348!important }
+.text-blue-600,.text-blue-500,.text-indigo-600 { color:#158348!important }
+.hover\:bg-blue-700:hover,.hover\:bg-green-700:hover { background-color:#0d512e!important }
+.focus\:ring-blue-500:focus { --tw-ring-color:#39a96b!important }
+
+@layer components {
+  /* Кнопки */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold;
+    @apply transition-all duration-200 ease-out;
+    @apply focus:outline-none focus:ring-4 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply active:scale-[0.97];
+  }
+  
+  .btn-primary {
+    @apply bg-primary-600 text-white shadow-md hover:bg-primary-700 hover:shadow-lg;
+    @apply focus:ring-primary-500/30;
+  }
+  
+  .btn-secondary {
+    @apply border-2 border-border bg-surface text-text-primary;
+    @apply hover:border-primary-300 hover:bg-muted;
+    @apply focus:ring-primary-500/20;
+  }
+  
+  .btn-success {
+    @apply bg-success-600 text-white shadow-md hover:bg-success-700 hover:shadow-lg;
+    @apply focus:ring-success-500/30;
+  }
+  
+  .btn-danger {
+    @apply bg-error-600 text-white shadow-md hover:bg-error-700 hover:shadow-lg;
+    @apply focus:ring-error-500/30;
+  }
+  
+  .btn-ghost {
+    @apply text-text-secondary hover:bg-muted hover:text-text-primary;
+    @apply focus:ring-primary-500/20;
+  }
+  
+  /* Карточки */
+  .card {
+    @apply rounded-2xl border border-border bg-card shadow-card;
+    @apply transition-all duration-200;
+  }
+  
+  .card-hover {
+    @apply hover:shadow-xl hover:-translate-y-0.5;
+  }
+  
+  .card-header {
+    @apply border-b border-border px-6 py-4;
+  }
+  
+  .card-body {
+    @apply p-6;
+  }
+  
+  .card-footer {
+    @apply border-t border-border px-6 py-4;
+  }
+  
+  /* Инпуты */
+  .input {
+    @apply w-full rounded-xl border-2 border-border bg-input px-4 py-2.5 text-sm text-text-primary;
+    @apply transition-all duration-200;
+    @apply placeholder:text-text-muted;
+    @apply focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-primary-500/20;
+    @apply disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-muted;
+  }
+  
+  .input-error {
+    @apply border-error-500 focus:border-error-500 focus:ring-error-500/20;
+  }
+  
+  .label {
+    @apply mb-2 block text-sm font-semibold text-text-primary;
+  }
+  
+  .input-group {
+    @apply space-y-2;
+  }
+  
+  .error-message {
+    @apply text-xs text-error-600 mt-1;
+  }
+  
+  /* Таблицы */
+  .data-table {
+    @apply min-w-full divide-y divide-border;
+  }
+  
+  .data-table thead {
+    @apply bg-muted;
+  }
+  
+  .data-table th {
+    @apply px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-text-secondary;
+    @apply sticky top-0 bg-muted z-10;
+  }
+  
+  .data-table td {
+    @apply px-6 py-4 text-sm text-text-primary;
+  }
+  
+  .data-table tbody tr {
+    @apply transition-colors duration-150 hover:bg-muted/50 cursor-pointer;
+  }
+  
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold;
+    @apply transition-all duration-150;
+  }
+  
+  .badge-primary {
+    @apply bg-primary-100 text-primary-700;
+  }
+  
+  .badge-secondary {
+    @apply bg-secondary-100 text-secondary-700;
+  }
+  
+  .badge-success {
+    @apply bg-success-100 text-success-700;
+  }
+  
+  .badge-warning {
+    @apply bg-warning-100 text-warning-700;
+  }
+  
+  .badge-error {
+    @apply bg-error-100 text-error-700;
+  }
+  
+  /* Титры страниц */
+  .page-title {
+    @apply text-3xl font-bold text-text-primary tracking-tight;
+  }
+  
+  .page-subtitle {
+    @apply mt-2 text-sm text-text-secondary;
+  }
+  
+  /* Skeleton загрузчики */
+  .skeleton {
+    @apply animate-pulse bg-muted rounded;
+  }
+  
+  .skeleton-text {
+    @apply h-4 skeleton;
+  }
+  
+  .skeleton-title {
+    @apply h-6 skeleton;
+  }
+  
+  .skeleton-card {
+    @apply h-32 skeleton;
+  }
+}
+
+@layer utilities {
+  /* Кастомные утилиты */
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--color-border)) transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgb(var(--color-border));
+    border-radius: 4px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--color-text-muted));
+  }
+}
+
+/* Анимации */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+/* Стили для React Hot Toast */
+.react-hot-toast {
+  @apply rounded-xl shadow-xl border border-border;
+}
+
+/* Плавные переходы для темной темы */
+* {
+  transition-property: background-color, border-color, color;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+/* Не применять transition к анимациям и трансформациям */
+*:where([class*="animate-"], [class*="transition-transform"]) {
+  transition-property: transform;
+}
