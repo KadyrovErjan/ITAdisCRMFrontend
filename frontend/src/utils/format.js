@@ -33,6 +33,7 @@ export const formatRole = (role) => {
 
 export const formatTransactionType = (type) => {
   const types = {
+    booking: 'Бронь',
     register: 'Регистрация',
     topup: 'Доплата',
   }

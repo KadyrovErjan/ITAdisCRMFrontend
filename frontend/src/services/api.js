@@ -155,16 +155,26 @@ export const studentsAPI = {
     const response = await api.get('/students/', { params });
     return response.data;
   },
-  register: async (data) => {
-    const response = await api.post('/students/register/', data);
+  register: async (data, idempotencyKey) => {
+    const response = await api.post('/students/register/', data, idempotencyKey ? {
+      headers: { 'Idempotency-Key': idempotencyKey },
+    } : undefined);
     return response.data;
   },
   get: async (id) => {
     const response = await api.get(`/students/${id}/`);
     return response.data;
   },
-  makePayment: async (id, data) => {
-    const response = await api.post(`/students/${id}/payments/`, data);
+  makePayment: async (id, data, idempotencyKey) => {
+    const response = await api.post(`/students/${id}/payments/`, data, idempotencyKey ? {
+      headers: { 'Idempotency-Key': idempotencyKey },
+    } : undefined);
+    return response.data;
+  },
+  addBooking: async (id, data, idempotencyKey) => {
+    const response = await api.post(`/students/${id}/booking/`, data, idempotencyKey ? {
+      headers: { 'Idempotency-Key': idempotencyKey },
+    } : undefined);
     return response.data;
   },
   changeStatus: async (id, status) => {
@@ -173,6 +183,21 @@ export const studentsAPI = {
   },
   transferGroup: async (id, groupId) => {
     const response = await api.post(`/students/${id}/transfer/`, { group_id: groupId });
+    return response.data;
+  },
+  updateDetails: async (id, data) => {
+    const response = await api.patch(`/students/${id}/update_details/`, data);
+    return response.data;
+  },
+  getHistory: async (id, params) => {
+    const response = await api.get(`/students/${id}/history/`, { params });
+    return response.data;
+  },
+}
+
+export const cashierAPI = {
+  getDashboard: async () => {
+    const response = await api.get('/cashier/dashboard/');
     return response.data;
   },
 }

@@ -10,6 +10,7 @@ import Expenses from './pages/Expenses'
 import Analytics from './pages/Analytics'
 import Users from './pages/Users'
 import Profile from './pages/Profile'
+import Cashier from './pages/Cashier'
 
 function PrivateRoute({ children, roles }) {
   const { isAuthenticated, hasRole } = useAuthStore()
@@ -41,6 +42,9 @@ function App() {
       }>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
+        <Route path="cashier" element={
+          <PrivateRoute roles="cashier"><Cashier /></PrivateRoute>
+        } />
         <Route path="groups" element={<Groups />} />
         <Route path="balances" element={<Balances />} />
         <Route path="collections" element={
