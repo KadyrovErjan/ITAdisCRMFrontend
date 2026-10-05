@@ -2,7 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { groupsAPI, studentsAPI, transactionsAPI } from '../services/api';
 import { useAuthStore } from '../store/authStore';
-import { PlusIcon, UserGroupIcon, AcademicCapIcon, ChevronDownIcon, ChevronUpIcon, BanknotesIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, UserGroupIcon, AcademicCapIcon, ChevronDownIcon, ChevronUpIcon, BanknotesIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 const Groups = () => {
   const { user } = useAuthStore();
@@ -20,13 +20,19 @@ const Groups = () => {
   const [studentTransactions, setStudentTransactions] = useState({});
   const [loadingStudents, setLoadingStudents] = useState({});
   const [loadingTransactions, setLoadingTransactions] = useState({});
+  const [studentNameSearch, setStudentNameSearch] = useState('');
   const [groupFormData, setGroupFormData] = useState({ name: '', subject: '', schedule: '', total_lessons: 12 });
   const [studentFormData, setStudentFormData] = useState({ full_name: '', amount: '' });
   const [paymentFormData, setPaymentFormData] = useState({ amount: '' });
 
-  const { data: groups, isLoading } = useQuery({ 
-    queryKey: ['groups', statusFilter], 
-    queryFn: () => groupsAPI.getList({ status: statusFilter }) 
+  const normalizedStudentNameSearch = studentNameSearch.trim();
+
+  const { data: groups, isLoading } = useQuery({
+    queryKey: ['groups', statusFilter, normalizedStudentNameSearch],
+    queryFn: () => groupsAPI.getList({
+      status: statusFilter,
+      ...(normalizedStudentNameSearch && { student_name: normalizedStudentNameSearch }),
+    })
   });
 
   const createGroupMutation = useMutation({
@@ -119,7 +125,10 @@ const Groups = () => {
   const loadGroupStudents = async (groupId) => {
     setLoadingStudents(prev => ({ ...prev, [groupId]: true }));
     try {
-      const data = await groupsAPI.getStudents(groupId);
+      const data = await groupsAPI.getStudents(
+        groupId,
+        normalizedStudentNameSearch ? { search: normalizedStudentNameSearch } : undefined
+      );
       setGroupStudents(prev => ({ ...prev, [groupId]: data }));
     } catch (error) {
       console.error('Failed to load students:', error);
@@ -218,12 +227,33 @@ const Groups = () => {
   return (
     <>
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Топтор</h1>
           <p className="mt-1 text-sm text-gray-500">Окуу топторун жана окуучуларды башкаруу</p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative w-full sm:w-72">
+            <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              type="search"
+              value={studentNameSearch}
+              onChange={(e) => setStudentNameSearch(e.target.value)}
+              placeholder="Окуучунун аты боюнча издөө"
+              aria-label="Окуучунун аты боюнча издөө"
+              className="w-full rounded-md border border-gray-300 py-2 pl-10 pr-10 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {studentNameSearch && (
+              <button
+                type="button"
+                onClick={() => setStudentNameSearch('')}
+                aria-label="Издөөнү тазалоо"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:text-gray-700"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            )}
+          </div>
           {/* Фильтр по статусу */}
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
@@ -270,7 +300,15 @@ const Groups = () => {
         <div className="space-y-4">
           {groups?.results?.map((group) => {
             const isExpanded = expandedGroups[group.id];
-            const students = groupStudents[group.id];
+            const loadedStudents = groupStudents[group.id];
+            const students = normalizedStudentNameSearch
+              ? {
+                  ...loadedStudents,
+                  results: loadedStudents?.results?.filter((student) =>
+                    student.full_name.toLocaleLowerCase().includes(normalizedStudentNameSearch.toLocaleLowerCase())
+                  ),
+                }
+              : loadedStudents;
             const isLoadingStudents = loadingStudents[group.id];
             return (
               <div key={group.id} className="bg-white shadow rounded-lg overflow-hidden">
@@ -445,6 +483,15 @@ const Groups = () => {
               </div>
             );
           })}
+          {groups?.results?.length === 0 && (
+            <div className="rounded-lg bg-white py-12 text-center shadow">
+              <AcademicCapIcon className="mx-auto h-12 w-12 text-gray-300" />
+              <h3 className="mt-3 text-sm font-medium text-gray-900">Окуучулар табылган жок</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                {normalizedStudentNameSearch ? 'Башка атты жазып көрүңүз' : 'Бул статуста топтор жок'}
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

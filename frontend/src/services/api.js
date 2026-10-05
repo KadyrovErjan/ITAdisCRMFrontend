@@ -143,8 +143,8 @@ export const groupsAPI = {
     const response = await api.patch(`/groups/${id}/change-status/`, { status });
     return response.data;
   },
-  getStudents: async (id) => {
-    const response = await api.get(`/groups/${id}/students/`);
+  getStudents: async (id, params) => {
+    const response = await api.get(`/groups/${id}/students/`, { params });
     return response.data;
   },
 }
