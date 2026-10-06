@@ -171,6 +171,10 @@ const Groups = () => {
     }
   };
 
+  const toggleStudentDetails = (student) => {
+    setSelectedStudent((current) => current?.id === student.id ? null : student);
+  };
+
   const getStatusBadge = (status) => {
     const styles = {
       active: 'bg-green-100 text-green-800 border-green-200',
@@ -367,16 +371,17 @@ const Groups = () => {
                       <div className="text-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div><p className="mt-2 text-sm text-gray-500">Окуучулар жүктөлүүдө...</p></div>
                     ) : students?.results?.length > 0 ? (
                       <>
-                        <table className="min-w-full divide-y divide-gray-200">
+                        <div className="overflow-x-auto rounded-lg border border-gray-100">
+                        <table className="min-w-[1120px] w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
                             <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Окуучунун аты</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Телефон / обучение</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Оплата</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Цена / оплачено</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Сегодня / долг</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Остаток / следующая</th>
-                              {user?.role === 'cashier' && <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Аракеттер</th>}
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Окуучу</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Телефон / окуу</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Төлөм</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Баасы / төлөнгөн</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Бүгүн / мөөнөтү өткөн</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Калдык / кийинки</th>
+                              {user?.role === 'cashier' && <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Аракеттер</th>}
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
@@ -388,7 +393,7 @@ const Groups = () => {
                               return (
                                 <Fragment key={student.id}>
                                   <tr key={student.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => toggleStudent(student.id)}>
-                                    <td className="px-6 py-4 whitespace-nowrap">
+                                    <td className="px-4 py-4 whitespace-nowrap">
                                       <div className="flex items-center">
                                         <div className="flex-shrink-0">
                                           {isStudentExpanded ? (
@@ -403,7 +408,7 @@ const Groups = () => {
                                         <div className="ml-4 text-sm font-medium text-gray-900">{student.full_name}</div>
                                       </div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
                                       <div className="flex items-center space-x-2">
                                         {getStatusBadge(student.learning_status || student.status || 'active')}
                                         {user?.role === 'cashier' && (
@@ -423,19 +428,19 @@ const Groups = () => {
                                       </div>
                                       <div className="mt-1">{student.phone || '—'}</div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                      <span className="text-sm font-semibold">{student.payment_status === 'unknown' ? 'График не настроен' : student.payment_status === 'overdue' ? '🔴 Просрочено' : student.payment_status === 'upcoming' ? '🟡 Следующая оплата' : student.payment_status}</span>
+                                    <td className="px-4 py-4 whitespace-nowrap">
+                                      <span className="text-sm font-semibold">{student.payment_status === 'unknown' ? 'График түзүлгөн эмес' : student.payment_status === 'overdue' ? '🔴 Мөөнөтү өткөн' : student.payment_status === 'upcoming' ? '🟡 Кийинки төлөм' : student.payment_status}</span>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm"><div>{student.course_price ? `${parseFloat(student.course_price).toLocaleString('ru-RU')} сом` : '—'}</div><b className="text-green-600">{parseFloat(student.amount_paid_total || 0).toLocaleString('ru-RU')} сом</b></td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm"><div>{parseFloat(student.financial_summary?.due_now || 0).toLocaleString('ru-RU')} сом</div><b className="text-red-600">{parseFloat(student.financial_summary?.overdue_amount || 0).toLocaleString('ru-RU')} сом</b></td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm"><div>{student.financial_summary?.contract_remaining == null ? '—' : `${parseFloat(student.financial_summary.contract_remaining).toLocaleString('ru-RU')} сом`}</div><span className="text-gray-500">{student.financial_summary?.next_payment_date || '—'}</span></td>
+                                    <td className="px-4 py-4 whitespace-nowrap text-sm"><div>{student.course_price ? `${parseFloat(student.course_price).toLocaleString('ru-RU')} сом` : '—'}</div><b className="text-green-600">{parseFloat(student.amount_paid_total || 0).toLocaleString('ru-RU')} сом</b></td>
+                                    <td className="px-4 py-4 whitespace-nowrap text-sm"><div>{parseFloat(student.financial_summary?.due_now || 0).toLocaleString('ru-RU')} сом</div><b className="text-red-600">{parseFloat(student.financial_summary?.overdue_amount || 0).toLocaleString('ru-RU')} сом</b></td>
+                                    <td className="px-4 py-4 whitespace-nowrap text-sm"><div>{student.financial_summary?.contract_remaining == null ? '—' : `${parseFloat(student.financial_summary.contract_remaining).toLocaleString('ru-RU')} сом`}</div><span className="text-gray-500">{student.financial_summary?.next_payment_date || '—'}</span></td>
                                     {user?.role === 'cashier' && (
-                                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                                        <div className="flex items-center justify-end space-x-2">
+                                      <td className="px-4 py-4 text-right">
+                                        <div className="flex min-w-[272px] flex-wrap justify-end gap-2">
                                           <button onClick={(e) => { e.stopPropagation(); setSelectedStudent(student); setIsPaymentModalOpen(true); }} className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
                                             <BanknotesIcon className="h-4 w-4 mr-1" />Төлөм
                                           </button>
-                                          <button onClick={(e) => { e.stopPropagation(); setSelectedStudent(student); }} className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md text-blue-700 bg-blue-50">Карточка</button>
+                                          <button onClick={(e) => { e.stopPropagation(); toggleStudentDetails(student); }} className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md text-blue-700 bg-blue-50">Карточка</button>
                                           <button onClick={(e) => handleTransferStudent(student, e)} className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200">
                                             🔄 Которуу
                                           </button>
@@ -445,7 +450,7 @@ const Groups = () => {
                                   </tr>
                                   {isStudentExpanded && (
                                     <tr>
-                                      <td colSpan={user?.role === 'cashier' ? 5 : 4} className="px-6 py-4 bg-gray-50">
+                                      <td colSpan={user?.role === 'cashier' ? 7 : 6} className="px-4 py-4 bg-gray-50">
                                         {isLoadingTx ? (
                                           <div className="text-center py-4">
                                             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
@@ -489,6 +494,7 @@ const Groups = () => {
                             })}
                           </tbody>
                         </table>
+                        </div>
                         <div className="mt-4 px-6 py-3 bg-gray-50 rounded-lg"><div className="flex justify-between items-center"><span className="text-sm font-medium text-gray-700">Жалпы сумма:</span><span className="text-xl font-bold text-green-600">{students.results.reduce((sum, s) => sum + parseFloat(s.amount_paid_total || 0), 0).toLocaleString('ru-RU')} сом</span></div></div>
                       </>
                     ) : (
@@ -512,7 +518,7 @@ const Groups = () => {
       )}
     </div>
 
-    {selectedStudent && !isPaymentModalOpen && !isTransferModalOpen && <StudentDetails student={selectedStudent} onChanged={() => { queryClient.invalidateQueries({ queryKey: ['groups'] }); if (selectedStudent.group) loadGroupStudents(selectedStudent.group) }} />}
+    {selectedStudent && !isPaymentModalOpen && !isTransferModalOpen && <StudentDetails student={selectedStudent} onClose={() => setSelectedStudent(null)} onChanged={() => { queryClient.invalidateQueries({ queryKey: ['groups'] }); if (selectedStudent.group) loadGroupStudents(selectedStudent.group) }} />}
 
     {/* Модальное окно создания группы */}
     {isGroupModalOpen && (

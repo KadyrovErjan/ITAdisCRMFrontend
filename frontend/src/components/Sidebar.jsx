@@ -4,7 +4,6 @@ import Brand from './Brand';
 import {
   HomeIcon,
   UserGroupIcon,
-  CalculatorIcon,
   ScaleIcon,
   CurrencyDollarIcon,
   ReceiptPercentIcon,
@@ -20,7 +19,6 @@ const Sidebar = () => {
 
   const navigation = [
     { name: 'Башкы бет', href: '/dashboard', icon: HomeIcon, roles: ['cashier', 'accountant', 'director'] },
-    { name: 'Касса', href: '/cashier', icon: CalculatorIcon, roles: ['cashier'] },
     { name: 'Топтор', href: '/groups', icon: UserGroupIcon, roles: ['cashier', 'accountant', 'director'] },
     { name: 'Балансдар', href: '/balances', icon: ScaleIcon, roles: ['accountant', 'director'] },
     { name: 'Акча чогултуу', href: '/collections', icon: CurrencyDollarIcon, roles: ['accountant', 'director'] },
