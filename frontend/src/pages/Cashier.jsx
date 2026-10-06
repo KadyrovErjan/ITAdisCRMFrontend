@@ -1,4 +1,5 @@
-import { useDeferredValue, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
@@ -8,6 +9,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { cashierAPI, groupsAPI, studentsAPI } from '../services/api'
 import { formatCurrency, formatDateTime, formatTransactionType } from '../utils/format'
+import StudentPaymentPlan from '../components/StudentPaymentPlan'
 
 const freshKey = () => globalThis.crypto?.randomUUID?.() || `cashier-${Date.now()}-${Math.random()}`
 const amount = (value) => Number.parseFloat(value || 0)
@@ -28,13 +30,14 @@ function Modal({ title, children, onClose }) {
 }
 
 function PaymentStatus({ value }) {
-  const labels = { debt: ['Долг', 'bg-amber-100 text-amber-800'], paid: ['Оплачено', 'bg-emerald-100 text-emerald-800'], overpaid: ['Переплата', 'bg-sky-100 text-sky-800'], unknown: ['Цена не указана', 'bg-slate-100 text-slate-700'] }
+  const labels = { upcoming: ['Следующий платёж', 'bg-slate-100 text-slate-700'], due: ['К оплате сегодня', 'bg-amber-100 text-amber-800'], overdue: ['Просрочено', 'bg-red-100 text-red-800'], paid: ['Оплачено', 'bg-emerald-100 text-emerald-800'], overpaid: ['Переплата', 'bg-sky-100 text-sky-800'], unknown: ['График не указан', 'bg-slate-100 text-slate-700'] }
   const [label, styles] = labels[value] || labels.unknown
   return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${styles}`}>{label}</span>
 }
 
 export default function Cashier() {
   const queryClient = useQueryClient()
+  const [searchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search.trim())
   const [paymentStatus, setPaymentStatus] = useState('')
@@ -43,6 +46,22 @@ export default function Cashier() {
   const [registerForm, setRegisterForm] = useState({ full_name: '', phone: '', group: '', course_price: '', booking_amount: '', amount: '', assistant_name: '', comment: '', contract_status: 'unknown' })
   const [moneyForm, setMoneyForm] = useState({ amount: '', kind: 'payment' })
   const [editForm, setEditForm] = useState(null)
+  const notificationStudentId = searchParams.get('student')
+
+  useEffect(() => {
+    if (!notificationStudentId || selectedStudent?.id === notificationStudentId) return
+    let current = true
+    studentsAPI.get(notificationStudentId)
+      .then((student) => {
+        if (!current) return
+        setSelectedStudent(student)
+        setEditForm(student)
+      })
+      .catch(() => {
+        if (current) toast.error('Не удалось открыть ученика из уведомления')
+      })
+    return () => { current = false }
+  }, [notificationStudentId, selectedStudent?.id])
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ['cashier-dashboard'] })
@@ -72,7 +91,14 @@ export default function Cashier() {
     mutationFn: ({ student, form }) => (form.kind === 'booking'
       ? studentsAPI.addBooking(student.id, { amount: form.amount }, freshKey())
       : studentsAPI.makePayment(student.id, { amount: form.amount }, freshKey())),
-    onSuccess: (response) => { toast.success(response.replayed ? 'Операция уже была обработана' : 'Оплата сохранена'); refresh(); setModal(null); setMoneyForm({ amount: '', kind: 'payment' }) },
+    onSuccess: async (response, variables) => {
+      const freshStudent = await studentsAPI.get(variables.student.id)
+      setSelectedStudent(freshStudent)
+      queryClient.invalidateQueries({ queryKey: ['student-payment-plan', variables.student.id] })
+      queryClient.invalidateQueries({ queryKey: ['cashier-history', variables.student.id] })
+      toast.success(response.replayed ? 'Операция уже была обработана' : 'Оплата сохранена')
+      refresh(); setModal(null); setMoneyForm({ amount: '', kind: 'payment' })
+    },
     onError: (error) => toast.error(error.response?.data?.detail || 'Не удалось принять оплату'),
   })
   const editMutation = useMutation({
@@ -81,8 +107,12 @@ export default function Cashier() {
     onError: () => toast.error('Не удалось сохранить изменения'),
   })
   const statusMutation = useMutation({
-    mutationFn: ({ id, status }) => studentsAPI.changeStatus(id, status),
-    onSuccess: (student) => { setSelectedStudent(student); refresh(); toast.success('Статус обновлён') },
+    mutationFn: ({ id, status, previous }) => {
+      if (status === 'frozen') return studentsAPI.freeze(id)
+      if (status === 'active' && previous === 'frozen') return studentsAPI.resume(id)
+      return studentsAPI.changeStatus(id, status)
+    },
+    onSuccess: (student) => { setSelectedStudent((current) => ({ ...current, ...student })); refresh(); toast.success('Статус обновлён') },
     onError: () => toast.error('Не удалось изменить статус'),
   })
   const transferMutation = useMutation({
@@ -97,8 +127,8 @@ export default function Cashier() {
   const stats = useMemo(() => [
     ['Баланс кассы', dashboard?.balance, 'bg-emerald-50 text-emerald-700'],
     ['Принято сегодня', dashboard?.today_received, 'bg-sky-50 text-sky-700'],
-    ['Принято за месяц', dashboard?.month_received, 'bg-violet-50 text-violet-700'],
-    ['Ученики с долгом', dashboard?.debt_students_count ?? '—', 'bg-amber-50 text-amber-700'],
+    ['Просрочено', `${dashboard?.overdue_students_count ?? 0} · ${formatCurrency(dashboard?.overdue_amount || 0)}`, 'bg-red-50 text-red-700'],
+    ['Скоро оплата', `${dashboard?.upcoming_payments_count ?? 0} · ${formatCurrency(dashboard?.upcoming_amount || 0)}`, 'bg-amber-50 text-amber-700'],
   ], [dashboard])
 
   const openStudent = (student) => { setSelectedStudent(student); setEditForm(student) }
@@ -119,7 +149,7 @@ export default function Cashier() {
       </div>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map(([label, value, color]) => <div key={label} className={`rounded-2xl p-5 ${color}`}><p className="text-sm font-semibold opacity-80">{label}</p><p className="mt-2 text-2xl font-extrabold">{label === 'Ученики с долгом' ? value : formatCurrency(value || 0)}</p></div>)}
+        {stats.map(([label, value, color]) => <div key={label} className={`rounded-2xl p-5 ${color}`}><p className="text-sm font-semibold opacity-80">{label}</p><p className="mt-2 text-2xl font-extrabold">{label === 'Баланс кассы' || label === 'Принято сегодня' ? formatCurrency(value || 0) : value}</p></div>)}
       </section>
 
       <section className="card overflow-hidden">
@@ -139,7 +169,8 @@ export default function Cashier() {
 
       {selectedStudent && <section className="card p-6"><div className="flex flex-col gap-3 border-b border-slate-100 pb-5 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex items-center gap-3"><h2 className="text-xl font-extrabold text-slate-900">{selectedStudent.full_name}</h2><PaymentStatus value={selectedStudent.payment_status} /></div><p className="mt-2 text-sm text-slate-500">{selectedStudent.phone || 'Телефон не указан'} · {selectedStudent.group_name}</p></div><button className="rounded-lg p-1 text-slate-400 hover:bg-slate-100" onClick={() => setSelectedStudent(null)}><XMarkIcon className="h-6 w-6" /></button></div>
         <div className="mt-5 grid gap-3 sm:grid-cols-3"><div className="rounded-xl bg-slate-50 p-4"><p className="text-xs font-semibold text-slate-500">Цена курса</p><p className="mt-1 font-bold">{selectedStudent.course_price ? formatCurrency(selectedStudent.course_price) : 'Не задана'}</p></div><div className="rounded-xl bg-emerald-50 p-4"><p className="text-xs font-semibold text-emerald-700">Всего оплачено</p><p className="mt-1 font-bold text-emerald-800">{formatCurrency(selectedStudent.amount_paid_total)}</p></div><div className="rounded-xl bg-amber-50 p-4"><p className="text-xs font-semibold text-amber-700">Остаток</p><p className="mt-1 font-bold text-amber-800">{selectedStudent.remaining_balance === null ? '—' : formatCurrency(selectedStudent.remaining_balance)}</p></div></div>
-        <div className="mt-5 flex flex-wrap gap-2"><button className="btn btn-primary" onClick={() => setModal('payment')}><BanknotesIcon className="h-5 w-5" /> Принять оплату</button><button className="btn btn-secondary" onClick={() => { setMoneyForm({ amount: '', kind: 'booking' }); setModal('payment') }}><PlusIcon className="h-5 w-5" /> Бронь</button><button className="btn btn-secondary" onClick={() => setModal('edit')}><PencilSquareIcon className="h-5 w-5" /> Изменить данные</button><button className="btn btn-secondary" onClick={() => setModal('transfer')}><ArrowsRightLeftIcon className="h-5 w-5" /> Перевести</button><select className="input w-auto" value={selectedStudent.status} onChange={(event) => statusMutation.mutate({ id: selectedStudent.id, status: event.target.value })}><option value="active">Активный</option><option value="debt">Долг</option><option value="frozen">Заморожен</option><option value="expelled">Отчислен</option></select></div>
+        <div className="mt-5 flex flex-wrap gap-2"><button className="btn btn-primary" onClick={() => setModal('payment')}><BanknotesIcon className="h-5 w-5" /> Принять оплату</button><button className="btn btn-secondary" onClick={() => { setMoneyForm({ amount: '', kind: 'booking' }); setModal('payment') }}><PlusIcon className="h-5 w-5" /> Бронь</button><button className="btn btn-secondary" onClick={() => setModal('edit')}><PencilSquareIcon className="h-5 w-5" /> Изменить данные</button><button className="btn btn-secondary" onClick={() => setModal('transfer')}><ArrowsRightLeftIcon className="h-5 w-5" /> Перевести</button><select className="input w-auto" value={selectedStudent.learning_status || selectedStudent.status} onChange={(event) => { const next = event.target.value; const previous = selectedStudent.learning_status || selectedStudent.status; if (next === 'frozen' && !window.confirm(`Заморозить обучение ${selectedStudent.full_name}? Будущие сроки оплаты будут приостановлены.`)) return; statusMutation.mutate({ id: selectedStudent.id, status: next, previous }) }}><option value="active">Активный</option><option value="frozen">Заморожен</option><option value="completed">Завершил обучение</option><option value="archived">Архивирован</option></select></div>
+        <StudentPaymentPlan student={selectedStudent} onChanged={refresh} />
         <div className="mt-6"><h3 className="mb-3 flex items-center gap-2 font-bold text-slate-900"><ClockIcon className="h-5 w-5" /> История оплат</h3>{historyLoading ? <p className="text-sm text-slate-500">Загрузка истории…</p> : <div className="space-y-2">{history.length ? history.map((item) => <div key={item.id} className="flex items-center justify-between rounded-xl border border-slate-100 p-3"><div><p className="font-semibold text-slate-800">{formatTransactionType(item.type)}</p><p className="mt-1 text-xs text-slate-500">{formatDateTime(item.created_at)}</p></div><p className="font-bold text-emerald-700">+{formatCurrency(item.amount)}</p></div>) : <p className="text-sm text-slate-500">Оплат пока нет.</p>}</div>}</div>
       </section>}
 

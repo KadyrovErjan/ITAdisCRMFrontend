@@ -193,6 +193,11 @@ export const studentsAPI = {
     const response = await api.get(`/students/${id}/history/`, { params });
     return response.data;
   },
+  getFinancialSummary: async (id) => (await api.get(`/students/${id}/financial-summary/`)).data,
+  getPaymentPlan: async (id) => (await api.get(`/students/${id}/payment-plan/`)).data,
+  createPaymentPlan: async (id, data) => (await api.post(`/students/${id}/payment-plan/`, data)).data,
+  freeze: async (id, data = {}) => (await api.post(`/students/${id}/freeze/`, data)).data,
+  resume: async (id) => (await api.post(`/students/${id}/resume/`)).data,
 }
 
 export const cashierAPI = {
@@ -200,6 +205,11 @@ export const cashierAPI = {
     const response = await api.get('/cashier/dashboard/');
     return response.data;
   },
+}
+
+export const notificationsAPI = {
+  getList: async (params) => (await api.get('/payment-notifications/', { params })).data,
+  markRead: async (id) => (await api.post(`/payment-notifications/${id}/read/`)).data,
 }
 
 // Transactions API
