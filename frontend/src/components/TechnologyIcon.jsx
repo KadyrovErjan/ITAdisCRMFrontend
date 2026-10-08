@@ -1,5 +1,5 @@
 import { UserGroupIcon } from '@heroicons/react/24/outline'
-import pythonLogo from '../assets/technologies/python.svg'
+import pythonLogo from '../assets/technologies/python.png'
 import javascriptLogo from '../assets/technologies/javascript.svg'
 import flutterLogo from '../assets/technologies/flutter.svg'
 

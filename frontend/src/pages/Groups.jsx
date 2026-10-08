@@ -25,7 +25,7 @@ const Groups = () => {
   const [loadingTransactions, setLoadingTransactions] = useState({});
   const [studentNameSearch, setStudentNameSearch] = useState('');
   const [groupFormData, setGroupFormData] = useState({ name: '', subject: '', technology: '', schedule: '', total_lessons: 12, duration_months: '', study_days_per_week: '', start_date: '', end_date: '' });
-  const [studentFormData, setStudentFormData] = useState({ full_name: '', amount: '' });
+  const [studentFormData, setStudentFormData] = useState({ full_name: '', phone: '', amount: '0', course_price: '', assistant_name: '', contract_status: 'unknown', comment: '' });
   const [paymentFormData, setPaymentFormData] = useState({ amount: '' });
 
   const normalizedStudentNameSearch = studentNameSearch.trim();
@@ -48,7 +48,11 @@ const Groups = () => {
   });
 
   const registerStudentMutation = useMutation({
-    mutationFn: (data) => studentsAPI.register(data),
+    mutationFn: (data) => studentsAPI.register({
+      ...data,
+      course_price: data.course_price === '' ? null : data.course_price,
+      amount: data.amount === '' ? '0' : data.amount,
+    }),
     onSuccess: async () => {
       queryClient.invalidateQueries(['students']);
       queryClient.invalidateQueries(['groups']);
@@ -66,7 +70,7 @@ const Groups = () => {
         }
       }
       setIsStudentModalOpen(false);
-      setStudentFormData({ full_name: '', amount: '' });
+      setStudentFormData({ full_name: '', phone: '', amount: '0', course_price: '', assistant_name: '', contract_status: 'unknown', comment: '' });
       setSelectedGroup(null);
     },
   });
@@ -431,7 +435,7 @@ const Groups = () => {
                                     <td className="px-4 py-4 whitespace-nowrap">
                                       <span className="text-sm font-semibold">{student.payment_status === 'unknown' ? 'График түзүлгөн эмес' : student.payment_status === 'overdue' ? '🔴 Мөөнөтү өткөн' : student.payment_status === 'upcoming' ? '🟡 Кийинки төлөм' : student.payment_status}</span>
                                     </td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm"><div>{student.course_price ? `${parseFloat(student.course_price).toLocaleString('ru-RU')} сом` : '—'}</div><b className="text-green-600">{parseFloat(student.amount_paid_total || 0).toLocaleString('ru-RU')} сом</b></td>
+                                    <td className="px-4 py-4 whitespace-nowrap text-sm"><div>{student.course_price === null || student.course_price === undefined || student.course_price === '' ? '—' : `${parseFloat(student.course_price).toLocaleString('ru-RU')} сом`}</div><b className="text-green-600">{parseFloat(student.amount_paid_total || 0).toLocaleString('ru-RU')} сом</b></td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm"><div>{parseFloat(student.financial_summary?.due_now || 0).toLocaleString('ru-RU')} сом</div><b className="text-red-600">{parseFloat(student.financial_summary?.overdue_amount || 0).toLocaleString('ru-RU')} сом</b></td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm"><div>{student.financial_summary?.contract_remaining == null ? '—' : `${parseFloat(student.financial_summary.contract_remaining).toLocaleString('ru-RU')} сом`}</div><span className="text-gray-500">{student.financial_summary?.next_payment_date || '—'}</span></td>
                                     {user?.role === 'cashier' && (
@@ -518,7 +522,16 @@ const Groups = () => {
       )}
     </div>
 
-    {selectedStudent && !isPaymentModalOpen && !isTransferModalOpen && <StudentDetails student={selectedStudent} onClose={() => setSelectedStudent(null)} onChanged={() => { queryClient.invalidateQueries({ queryKey: ['groups'] }); if (selectedStudent.group) loadGroupStudents(selectedStudent.group) }} />}
+    {selectedStudent && !isPaymentModalOpen && !isTransferModalOpen && <StudentDetails student={selectedStudent} onClose={() => setSelectedStudent(null)} onChanged={(updated) => {
+      setSelectedStudent(updated)
+      setGroupStudents((previous) => Object.fromEntries(Object.entries(previous).map(([groupId, page]) => [groupId, {
+        ...page,
+        results: page.results?.map((item) => item.id === updated.id ? updated : item),
+      }])))
+      queryClient.invalidateQueries({ queryKey: ['students'] })
+      queryClient.invalidateQueries({ queryKey: ['groups'] })
+      if (updated.group) loadGroupStudents(updated.group)
+    }} />}
 
     {/* Модальное окно создания группы */}
     {isGroupModalOpen && (
@@ -581,13 +594,16 @@ const Groups = () => {
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Телефон <span className="text-xs text-gray-500">(необязательно)</span></label>
+                <input type="tel" value={studentFormData.phone} onChange={(e) => setStudentFormData({ ...studentFormData, phone: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="+996700000000" />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Биринчи төлөм (сом)
-                  <span className="text-xs text-gray-500 ml-1">(Каттоо учурунда)</span>
+                  <span className="text-xs text-gray-500 ml-1">(необязательно)</span>
                 </label>
                 <input 
                   type="number" 
-                  required 
                   min="0" 
                   step="0.01" 
                   value={studentFormData.amount} 
@@ -596,6 +612,23 @@ const Groups = () => {
                   placeholder="0"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Стоимость курса <span className="text-xs text-gray-500">(необязательно)</span></label>
+                <input type="number" min="0" step="0.01" value={studentFormData.course_price} onChange={(e) => setStudentFormData({ ...studentFormData, course_price: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="0" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Ассистент <span className="text-xs text-gray-500">(необязательно)</span></label>
+                <input type="text" value={studentFormData.assistant_name} onChange={(e) => setStudentFormData({ ...studentFormData, assistant_name: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Статус договора</label>
+                <select value={studentFormData.contract_status} onChange={(e) => setStudentFormData({ ...studentFormData, contract_status: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"><option value="unknown">Не указан</option><option value="signed">Подписан</option><option value="not_signed">Не подписан</option></select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Комментарий <span className="text-xs text-gray-500">(необязательно)</span></label>
+                <textarea value={studentFormData.comment} onChange={(e) => setStudentFormData({ ...studentFormData, comment: e.target.value })} rows="3" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
+              </div>
+              {registerStudentMutation.isError && <p role="alert" className="text-sm text-red-700">{registerStudentMutation.error?.response?.data?.detail || 'Не удалось зарегистрировать ученика.'}</p>}
             </div>
             
             <div className="mt-6 flex justify-end space-x-3">
