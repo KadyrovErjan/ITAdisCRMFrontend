@@ -131,6 +131,10 @@ export const groupsAPI = {
     const response = await api.post('/groups/', data);
     return response.data;
   },
+  update: async (id, data) => {
+    const response = await api.patch(`/groups/${id}/`, data);
+    return response.data;
+  },
   get: async (id) => {
     const response = await api.get(`/groups/${id}/`);
     return response.data;

@@ -7,6 +7,30 @@ import { PlusIcon, AcademicCapIcon, ChevronDownIcon, ChevronUpIcon, BanknotesIco
 import TechnologyIcon from '../components/TechnologyIcon';
 import StudentDetails from '../components/StudentDetails';
 
+const TECHNOLOGIES = ['Python', 'JavaScript', 'Flutter', 'Java', 'C#', 'UI/UX'];
+const WEEKDAYS = [
+  { value: 'mon', label: 'Пн' }, { value: 'tue', label: 'Вт' }, { value: 'wed', label: 'Ср' },
+  { value: 'thu', label: 'Чт' }, { value: 'fri', label: 'Пт' }, { value: 'sat', label: 'Сб' }, { value: 'sun', label: 'Вс' },
+];
+const newGroupForm = () => ({
+  name: '', technology: 'Python', customTechnology: '', scheduleDays: [], scheduleTime: '',
+  duration_months: '', start_date: '', end_date: '', total_lessons: '',
+});
+
+function addMonthsToIsoDate(startDate, months) {
+  if (!startDate || !months) return '';
+  const [year, month, day] = startDate.split('-').map(Number);
+  const targetMonth = month - 1 + Number(months);
+  // UTC avoids a local-timezone shift when serializing an HTML date input.
+  const lastDay = new Date(Date.UTC(year, targetMonth + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(year, targetMonth, Math.min(day, lastDay))).toISOString().slice(0, 10);
+}
+
+function serializeSchedule(days, time) {
+  const labels = days.map((day) => WEEKDAYS.find((item) => item.value === day)?.label).filter(Boolean);
+  return `${labels.join(', ')}${time ? ` · ${time}` : ''}`;
+}
+
 const Groups = () => {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
@@ -24,7 +48,10 @@ const Groups = () => {
   const [loadingStudents, setLoadingStudents] = useState({});
   const [loadingTransactions, setLoadingTransactions] = useState({});
   const [studentNameSearch, setStudentNameSearch] = useState('');
-  const [groupFormData, setGroupFormData] = useState({ name: '', subject: '', technology: '', schedule: '', total_lessons: 12, duration_months: '', study_days_per_week: '', start_date: '', end_date: '' });
+  const [groupFormData, setGroupFormData] = useState(newGroupForm);
+  const [groupFormError, setGroupFormError] = useState('');
+  const [isEndDateManual, setIsEndDateManual] = useState(false);
+  const [technologyEditor, setTechnologyEditor] = useState(null);
   const [studentFormData, setStudentFormData] = useState({ full_name: '', phone: '', amount: '0', course_price: '', assistant_name: '', contract_status: 'unknown', comment: '' });
   const [paymentFormData, setPaymentFormData] = useState({ amount: '' });
 
@@ -43,9 +70,65 @@ const Groups = () => {
     onSuccess: () => {
       queryClient.invalidateQueries(['groups']);
       setIsGroupModalOpen(false);
-      setGroupFormData({ name: '', subject: '', technology: '', schedule: '', total_lessons: 12, duration_months: '', study_days_per_week: '', start_date: '', end_date: '' });
+      setGroupFormData(newGroupForm());
+      setGroupFormError('');
+      setIsEndDateManual(false);
     },
   });
+
+  const updateTechnologyMutation = useMutation({
+    mutationFn: ({ id, technology }) => groupsAPI.update(id, { technology }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
+      setTechnologyEditor(null);
+    },
+  });
+
+  const setGroupTiming = (patch) => {
+    setGroupFormData((current) => {
+      const next = { ...current, ...patch };
+      if (!isEndDateManual && ('start_date' in patch || 'duration_months' in patch)) {
+        next.end_date = addMonthsToIsoDate(next.start_date, next.duration_months);
+      }
+      return next;
+    });
+  };
+
+  const toggleScheduleDay = (day) => {
+    setGroupFormData((current) => ({
+      ...current,
+      scheduleDays: current.scheduleDays.includes(day)
+        ? current.scheduleDays.filter((item) => item !== day)
+        : [...current.scheduleDays, day],
+    }));
+  };
+
+  const submitGroup = () => {
+    const technology = groupFormData.technology === 'other'
+      ? groupFormData.customTechnology.trim()
+      : groupFormData.technology;
+    if (!groupFormData.scheduleDays.length || !groupFormData.scheduleTime) {
+      setGroupFormError('Выберите дни недели и укажите время занятий.');
+      return;
+    }
+    if (!technology) {
+      setGroupFormError('Укажите направление группы.');
+      return;
+    }
+    setGroupFormError('');
+    createGroupMutation.mutate({
+      name: groupFormData.name.trim(), technology,
+      // subject — legacy обязательное поле API. Значение технологии сохраняет
+      // совместимость без второго противоречивого поля в интерфейсе.
+      subject: technology,
+      schedule: serializeSchedule(groupFormData.scheduleDays, groupFormData.scheduleTime),
+      study_days_per_week: groupFormData.scheduleDays.length,
+      duration_months: Number(groupFormData.duration_months),
+      start_date: groupFormData.start_date,
+      end_date: groupFormData.end_date || null,
+      total_lessons: Number(groupFormData.total_lessons) || Math.max(groupFormData.scheduleDays.length * Number(groupFormData.duration_months) * 4, 1),
+    });
+  };
 
   const registerStudentMutation = useMutation({
     mutationFn: (data) => studentsAPI.register({
@@ -365,6 +448,9 @@ const Groups = () => {
                       {user?.role === 'cashier' && (
                         <button onClick={(e) => { e.stopPropagation(); setSelectedGroup(group); setIsStudentModalOpen(true); }} className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">+ Окуучу</button>
                       )}
+                      {user?.role === 'cashier' && (
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setTechnologyEditor(group); }} className="px-3 py-1 text-sm text-blue-700 bg-blue-50 rounded hover:bg-blue-100">Технология</button>
+                      )}
                       <div className="p-2 text-gray-400">{isExpanded ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}</div>
                     </div>
                   </div>
@@ -538,32 +624,43 @@ const Groups = () => {
       <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" onClick={() => setIsGroupModalOpen(false)}>
         <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white" onClick={(e) => e.stopPropagation()}>
           <h3 className="text-lg font-medium mb-4">Жаңы топ түзүү</h3>
-          <form onSubmit={(e) => { e.preventDefault(); createGroupMutation.mutate(groupFormData); }}>
+          <form onSubmit={(e) => { e.preventDefault(); submitGroup(); }}>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Топтун аталышы</label>
                 <input type="text" required value={groupFormData.name} onChange={(e) => setGroupFormData({ ...groupFormData, name: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Предмет</label>
-                <input type="text" required value={groupFormData.subject} onChange={(e) => setGroupFormData({ ...groupFormData, subject: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
+                <label className="block text-sm font-medium text-gray-700">Технология</label>
+                <select value={groupFormData.technology} onChange={(e) => setGroupFormData({ ...groupFormData, technology: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                  {TECHNOLOGIES.map((technology) => <option key={technology} value={technology}>{technology}</option>)}
+                  <option value="other">Другое</option>
+                </select>
               </div>
+              {groupFormData.technology === 'other' && <div>
+                <label className="block text-sm font-medium text-gray-700">Другое направление</label>
+                <input type="text" required value={groupFormData.customTechnology} onChange={(e) => setGroupFormData({ ...groupFormData, customTechnology: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
+              </div>}
+              <fieldset>
+                <legend className="block text-sm font-medium text-gray-700">Расписание: дни недели</legend>
+                <div className="mt-2 flex flex-wrap gap-2">{WEEKDAYS.map((day) => <label key={day.value} className={`cursor-pointer rounded-md border px-3 py-2 text-sm ${groupFormData.scheduleDays.includes(day.value) ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-300 bg-white text-gray-700'}`}><input type="checkbox" className="sr-only" checked={groupFormData.scheduleDays.includes(day.value)} onChange={() => toggleScheduleDay(day.value)} />{day.label}</label>)}</div>
+              </fieldset>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Расписание</label>
-                <input type="text" required placeholder="Дүйшөмбү, Шаршемби 10:00" value={groupFormData.schedule} onChange={(e) => setGroupFormData({ ...groupFormData, schedule: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Направление / technology</label>
-                <input type="text" placeholder="Python, Flutter, JavaScript" value={groupFormData.technology} onChange={(e) => setGroupFormData({ ...groupFormData, technology: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
+                <label className="block text-sm font-medium text-gray-700">Время занятий</label>
+                <input type="text" required placeholder="19:00–21:00" value={groupFormData.scheduleTime} onChange={(e) => setGroupFormData({ ...groupFormData, scheduleTime: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
+                <p className="mt-1 text-xs text-gray-500">Дни выбираются отдельно; API получает читаемую строку расписания.</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <label className="block text-sm font-medium text-gray-700">Длительность, мес.<input type="number" min="1" value={groupFormData.duration_months} onChange={(e) => setGroupFormData({ ...groupFormData, duration_months: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" /></label>
-                <label className="block text-sm font-medium text-gray-700">Дней в неделю<input type="number" min="1" max="7" value={groupFormData.study_days_per_week} onChange={(e) => setGroupFormData({ ...groupFormData, study_days_per_week: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" /></label>
+                <label className="block text-sm font-medium text-gray-700">Длительность, мес.<input type="number" required min="1" value={groupFormData.duration_months} onChange={(e) => setGroupTiming({ duration_months: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" /></label>
+                <div className="block text-sm font-medium text-gray-700">Занятий в неделю<div className="mt-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-gray-700">{groupFormData.scheduleDays.length || '—'}</div></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <label className="block text-sm font-medium text-gray-700">Начало<input type="date" value={groupFormData.start_date} onChange={(e) => setGroupFormData({ ...groupFormData, start_date: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" /></label>
-                <label className="block text-sm font-medium text-gray-700">Окончание<input type="date" value={groupFormData.end_date} onChange={(e) => setGroupFormData({ ...groupFormData, end_date: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" /></label>
+                <label className="block text-sm font-medium text-gray-700">Начало<input type="date" required value={groupFormData.start_date} onChange={(e) => setGroupTiming({ start_date: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" /></label>
+                <label className="block text-sm font-medium text-gray-700">Окончание<input type="date" value={groupFormData.end_date} onChange={(e) => { setIsEndDateManual(true); setGroupFormData({ ...groupFormData, end_date: e.target.value }); }} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" /></label>
               </div>
+              <label className="block text-sm font-medium text-gray-700">Всего занятий <span className="text-xs text-gray-500">(рассчитано; можно скорректировать)</span><input type="number" min="1" value={groupFormData.total_lessons || (groupFormData.scheduleDays.length && groupFormData.duration_months ? groupFormData.scheduleDays.length * Number(groupFormData.duration_months) * 4 : '')} onChange={(e) => setGroupFormData({ ...groupFormData, total_lessons: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" /></label>
+              {groupFormError && <p role="alert" className="text-sm text-red-700">{groupFormError}</p>}
+              {createGroupMutation.isError && <p role="alert" className="text-sm text-red-700">{createGroupMutation.error?.response?.data?.detail || 'Не удалось создать группу.'}</p>}
             </div>
             <div className="mt-6 flex justify-end space-x-3">
               <button type="button" onClick={() => setIsGroupModalOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Жокко чыгаруу</button>
@@ -648,6 +745,22 @@ const Groups = () => {
               </button>
             </div>
           </form>
+        </div>
+      </div>
+    )}
+
+    {technologyEditor && (
+      <div className="fixed inset-0 z-50 h-full w-full overflow-y-auto bg-gray-600 bg-opacity-50" onClick={() => setTechnologyEditor(null)}>
+        <div className="relative top-20 mx-auto w-96 rounded-lg border bg-white p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <h3 className="text-xl font-bold text-gray-900">Технология группы</h3>
+          <p className="mt-1 text-sm text-gray-500">{technologyEditor.name}. Изменение не затрагивает учеников, платежи или историю.</p>
+          <label className="mt-4 block text-sm font-medium text-gray-700">Направление
+            <select defaultValue={technologyEditor.technology || technologyEditor.subject || ''} onChange={(e) => setTechnologyEditor({ ...technologyEditor, nextTechnology: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+              <option value="">Не указано</option>{TECHNOLOGIES.map((technology) => <option key={technology} value={technology}>{technology}</option>)}
+            </select>
+          </label>
+          <div className="mt-6 flex justify-end gap-3"><button type="button" onClick={() => setTechnologyEditor(null)} className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700">Отмена</button><button type="button" disabled={updateTechnologyMutation.isPending} onClick={() => updateTechnologyMutation.mutate({ id: technologyEditor.id, technology: technologyEditor.nextTechnology ?? technologyEditor.technology ?? technologyEditor.subject ?? '' })} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white">Сохранить</button></div>
+          {updateTechnologyMutation.isError && <p role="alert" className="mt-3 text-sm text-red-700">Не удалось сохранить технологию.</p>}
         </div>
       </div>
     )}
