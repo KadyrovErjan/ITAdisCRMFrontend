@@ -1,7 +1,7 @@
 import { UserGroupIcon } from '@heroicons/react/24/outline'
 import pythonLogo from '../assets/technologies/python.png'
-import javascriptLogo from '../assets/technologies/javascript.svg'
-import flutterLogo from '../assets/technologies/flutter.svg'
+import javascriptLogo from '../assets/technologies/javascript.png'
+import flutterLogo from '../assets/technologies/flutter.png'
 
 const logos = { python: pythonLogo, javascript: javascriptLogo, js: javascriptLogo, flutter: flutterLogo }
 

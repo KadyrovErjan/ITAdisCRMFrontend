@@ -8,6 +8,7 @@ import TechnologyIcon from '../components/TechnologyIcon';
 import StudentDetails from '../components/StudentDetails';
 
 const TECHNOLOGIES = ['Python', 'JavaScript', 'Flutter', 'Java', 'C#', 'UI/UX'];
+const freshKey = () => globalThis.crypto?.randomUUID?.() || `groups-${Date.now()}-${Math.random()}`;
 const WEEKDAYS = [
   { value: 'mon', label: 'Пн' }, { value: 'tue', label: 'Вт' }, { value: 'wed', label: 'Ср' },
   { value: 'thu', label: 'Чт' }, { value: 'fri', label: 'Пт' }, { value: 'sat', label: 'Сб' }, { value: 'sun', label: 'Вс' },
@@ -52,7 +53,8 @@ const Groups = () => {
   const [groupFormError, setGroupFormError] = useState('');
   const [isEndDateManual, setIsEndDateManual] = useState(false);
   const [technologyEditor, setTechnologyEditor] = useState(null);
-  const [studentFormData, setStudentFormData] = useState({ full_name: '', phone: '', amount: '0', course_price: '', assistant_name: '', contract_status: 'unknown', comment: '' });
+  const [studentRegistrationKey, setStudentRegistrationKey] = useState(() => freshKey());
+  const [studentFormData, setStudentFormData] = useState({ full_name: '', phone: '', first_payment_type: 'none', first_payment_amount: '0', course_price: '', assistant_name: '', contract_status: 'unknown', comment: '' });
   const [paymentFormData, setPaymentFormData] = useState({ amount: '' });
 
   const normalizedStudentNameSearch = studentNameSearch.trim();
@@ -131,11 +133,12 @@ const Groups = () => {
   };
 
   const registerStudentMutation = useMutation({
-    mutationFn: (data) => studentsAPI.register({
+    mutationFn: ({ first_payment_type, first_payment_amount, idempotencyKey, ...data }) => studentsAPI.register({
       ...data,
       course_price: data.course_price === '' ? null : data.course_price,
-      amount: data.amount === '' ? '0' : data.amount,
-    }),
+      booking_amount: first_payment_type === 'booking' ? (first_payment_amount || '0') : '0',
+      amount: first_payment_type === 'payment' ? (first_payment_amount || '0') : '0',
+    }, idempotencyKey),
     onSuccess: async () => {
       queryClient.invalidateQueries(['students']);
       queryClient.invalidateQueries(['groups']);
@@ -153,7 +156,8 @@ const Groups = () => {
         }
       }
       setIsStudentModalOpen(false);
-      setStudentFormData({ full_name: '', phone: '', amount: '0', course_price: '', assistant_name: '', contract_status: 'unknown', comment: '' });
+      setStudentFormData({ full_name: '', phone: '', first_payment_type: 'none', first_payment_amount: '0', course_price: '', assistant_name: '', contract_status: 'unknown', comment: '' });
+      setStudentRegistrationKey(freshKey());
       setSelectedGroup(null);
     },
   });
@@ -446,7 +450,7 @@ const Groups = () => {
                     </div>
                     <div className="flex items-center space-x-2 ml-4">
                       {user?.role === 'cashier' && (
-                        <button onClick={(e) => { e.stopPropagation(); setSelectedGroup(group); setIsStudentModalOpen(true); }} className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">+ Окуучу</button>
+                        <button onClick={(e) => { e.stopPropagation(); setSelectedGroup(group); setStudentRegistrationKey(freshKey()); setIsStudentModalOpen(true); }} className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">+ Окуучу</button>
                       )}
                       {user?.role === 'cashier' && (
                         <button type="button" onClick={(e) => { e.stopPropagation(); setTechnologyEditor(group); }} className="px-3 py-1 text-sm text-blue-700 bg-blue-50 rounded hover:bg-blue-100">Технология</button>
@@ -676,7 +680,7 @@ const Groups = () => {
       <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" onClick={() => setIsStudentModalOpen(false)}>
         <div className="relative top-20 mx-auto p-6 border w-96 shadow-lg rounded-lg bg-white" onClick={(e) => e.stopPropagation()}>
           <h3 className="text-xl font-bold mb-5 text-gray-900">Окуучуну каттоо: {selectedGroup.name}</h3>
-          <form onSubmit={(e) => { e.preventDefault(); registerStudentMutation.mutate({ ...studentFormData, group: selectedGroup.id }); }}>
+          <form onSubmit={(e) => { e.preventDefault(); registerStudentMutation.mutate({ ...studentFormData, group: selectedGroup.id, idempotencyKey: studentRegistrationKey }); }}>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Окуучунун толук аты</label>
@@ -695,19 +699,14 @@ const Groups = () => {
                 <input type="tel" value={studentFormData.phone} onChange={(e) => setStudentFormData({ ...studentFormData, phone: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="+996700000000" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Биринчи төлөм (сом)
-                  <span className="text-xs text-gray-500 ml-1">(необязательно)</span>
-                </label>
-                <input 
-                  type="number" 
-                  min="0" 
-                  step="0.01" 
-                  value={studentFormData.amount} 
-                  onChange={(e) => setStudentFormData({ ...studentFormData, amount: e.target.value })} 
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-lg font-medium" 
-                  placeholder="0"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Алгачкы акча</label>
+                <select value={studentFormData.first_payment_type} onChange={(e) => setStudentFormData({ ...studentFormData, first_payment_type: e.target.value, first_payment_amount: e.target.value === 'none' ? '0' : studentFormData.first_payment_amount })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                  <option value="none">Төлөмсүз каттоо</option>
+                  <option value="booking">Бронь</option>
+                  <option value="payment">Биринчи төлөм</option>
+                </select>
+                {studentFormData.first_payment_type !== 'none' && <input type="number" min="0" step="0.01" required value={studentFormData.first_payment_amount} onChange={(e) => setStudentFormData({ ...studentFormData, first_payment_amount: e.target.value })} className="mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-lg font-medium" placeholder="0" />}
+                <p className="mt-1 text-xs text-gray-500">Бронь жалпы төлөмгө кирет жана келишимдин калдыгын азайтат.</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Стоимость курса <span className="text-xs text-gray-500">(необязательно)</span></label>
