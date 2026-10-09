@@ -42,6 +42,7 @@ const Groups = () => {
   const [statusFilter, setStatusFilter] = useState('active'); // Фильтр по статусу
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [studentDetailsError, setStudentDetailsError] = useState('');
   const [expandedGroups, setExpandedGroups] = useState({});
   const [expandedStudents, setExpandedStudents] = useState({});
   const [groupStudents, setGroupStudents] = useState({});
@@ -612,7 +613,14 @@ const Groups = () => {
       )}
     </div>
 
+    {studentDetailsError && <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{studentDetailsError}</p>}
     {selectedStudent && !isPaymentModalOpen && !isTransferModalOpen && <StudentDetails student={selectedStudent} onClose={() => setSelectedStudent(null)} onChanged={(updated) => {
+      if (!updated || typeof updated !== 'object' || !updated.id) {
+        console.error('Student update callback received an invalid response:', updated)
+        setStudentDetailsError('Карточка ученика не обновлена: CRM вернула неполные данные. Финансовые записи не изменены. Обновите страницу и обратитесь к администратору, если ошибка повторится.')
+        return
+      }
+      setStudentDetailsError('')
       setSelectedStudent(updated)
       setGroupStudents((previous) => Object.fromEntries(Object.entries(previous).map(([groupId, page]) => [groupId, {
         ...page,
