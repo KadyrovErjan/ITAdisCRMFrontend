@@ -50,14 +50,14 @@ export default function StudentPaymentPlan({ student, onChanged }) {
     onSuccess: async () => {
       toast.success('График оплаты сохранён')
       setEditing(false)
-      await queryClient.invalidateQueries({ queryKey: ['student-payment-plan', student.id] })
       try {
+        await queryClient.invalidateQueries({ queryKey: ['student-payment-plan', student.id] })
         // POST /payment-plan/ intentionally returns plan metadata, not a Student.
         // Fetch the canonical Student before notifying the group list callback.
         onChanged?.(assertStudentUpdateResponse(await studentsAPI.get(student.id)))
       } catch (error) {
         console.error('Payment plan was saved but the student refresh failed:', error)
-        toast.error(error.message || 'График сохранён, но карточку ученика не удалось обновить. Обновите страницу.')
+        toast.error('График сохранён, но не удалось обновить данные. Обновите страницу.')
       }
     },
     onError: (error) => toast.error(error.response?.data?.items || error.response?.data?.detail || 'Не удалось сохранить график'),
