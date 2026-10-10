@@ -9,6 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:e2e:payment-plan": "playwright test e2e/payment-plan-creation.spec.mjs",
+    "test:e2e:groups": "playwright test e2e/groups-student-details-scroll.spec.mjs",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {

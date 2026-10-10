@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { notificationsAPI } from '../services/api';
 import { ArrowRightOnRectangleIcon, BellIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
+import { paymentStatusLabel } from '../utils/ky';
 
 const Header = () => {
   const { user, logout } = useAuthStore();
@@ -20,7 +21,7 @@ const Header = () => {
   const getRoleLabel = (role) => {
     const roles = {
       cashier: 'Кассир',
-      accountant: 'Бухгалтер',
+      accountant: 'Эсепчи',
       director: 'Директор',
     };
     return roles[role] || role;
@@ -43,7 +44,7 @@ const Header = () => {
             <BellIcon className="h-5 w-5" />
             {notifications?.unread_count > 0 && <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">{notifications.unread_count}</span>}
           </button>
-          {notificationsOpen && <div className="absolute right-0 z-50 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 shadow-xl"><p className="mb-2 font-bold text-slate-800">Уведомления</p>{notifications?.results?.length ? notifications.results.map((item) => <button key={item.id} onClick={() => { readMutation.mutate(item.id); setNotificationsOpen(false); navigate('/groups') }} className="mb-2 w-full rounded-lg bg-slate-50 p-3 text-left text-sm hover:bg-slate-100"><b>{item.kind === 'overdue' ? 'Просрочен платёж' : 'Скоро оплата'}</b><br />{item.student_name} — {item.amount} сом · {item.group_name}<br /><span className="text-slate-500">Срок: {item.due_date}</span></button>) : <p className="text-sm text-slate-500">Новых уведомлений нет</p>}</div>}
+          {notificationsOpen && <div className="absolute right-0 z-50 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 shadow-xl"><p className="mb-2 font-bold text-slate-800">Билдирмелер</p>{notifications?.results?.length ? notifications.results.map((item) => <button key={item.id} onClick={() => { readMutation.mutate(item.id); setNotificationsOpen(false); navigate('/groups') }} className="mb-2 w-full rounded-lg bg-slate-50 p-3 text-left text-sm hover:bg-slate-100"><b>{paymentStatusLabel(item.kind)}</b><br />{item.student_name} — {item.amount} сом · {item.group_name}<br /><span className="text-slate-500">Мөөнөтү: {item.due_date}</span></button>) : <p className="text-sm text-slate-500">Жаңы билдирмелер жок</p>}</div>}
           </div>
           <div className="flex items-center gap-2 border-l border-slate-200 pl-3 sm:gap-3 sm:pl-4">
             <div className="hidden text-right sm:block">

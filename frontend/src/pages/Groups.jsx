@@ -1,17 +1,20 @@
 ﻿import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Fragment } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { groupsAPI, studentsAPI, transactionsAPI } from '../services/api';
+import { formatTransactionType } from '../utils/format';
 import { useAuthStore } from '../store/authStore';
 import { PlusIcon, AcademicCapIcon, ChevronDownIcon, ChevronUpIcon, BanknotesIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import TechnologyIcon from '../components/TechnologyIcon';
 import StudentDetails from '../components/StudentDetails';
+import { contractStatusLabel, learningStatusLabel, paymentStatusLabel } from '../utils/ky';
 
 const TECHNOLOGIES = ['Python', 'JavaScript', 'Flutter', 'Java', 'C#', 'UI/UX'];
 const freshKey = () => globalThis.crypto?.randomUUID?.() || `groups-${Date.now()}-${Math.random()}`;
 const WEEKDAYS = [
-  { value: 'mon', label: 'Пн' }, { value: 'tue', label: 'Вт' }, { value: 'wed', label: 'Ср' },
-  { value: 'thu', label: 'Чт' }, { value: 'fri', label: 'Пт' }, { value: 'sat', label: 'Сб' }, { value: 'sun', label: 'Вс' },
+  { value: 'mon', label: 'Дш' }, { value: 'tue', label: 'Шш' }, { value: 'wed', label: 'Шр' },
+  { value: 'thu', label: 'Бш' }, { value: 'fri', label: 'Жм' }, { value: 'sat', label: 'Иш' }, { value: 'sun', label: 'Жк' },
 ];
 const newGroupForm = () => ({
   name: '', technology: 'Python', customTechnology: '', scheduleDays: [], scheduleTime: '',
@@ -57,8 +60,58 @@ const Groups = () => {
   const [studentRegistrationKey, setStudentRegistrationKey] = useState(() => freshKey());
   const [studentFormData, setStudentFormData] = useState({ full_name: '', phone: '', first_payment_type: 'none', first_payment_amount: '0', course_price: '', assistant_name: '', contract_status: 'unknown', comment: '' });
   const [paymentFormData, setPaymentFormData] = useState({ amount: '' });
+  const detailsRef = useRef(null);
+  const studentRowRefs = useRef(new Map());
+  const scrollOriginRef = useRef(null);
 
   const normalizedStudentNameSearch = studentNameSearch.trim();
+  const selectedStudentId = selectedStudent?.id;
+
+  const scrollToElement = useCallback((element, behavior = 'smooth') => {
+    if (!element) return;
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const motion = reducedMotion ? 'auto' : behavior;
+    // Centering keeps the card clear of the sticky header in either the page
+    // scroll container or the nested main container.
+    element.scrollIntoView({ behavior: motion, block: 'center' });
+  }, []);
+
+  useEffect(() => {
+    if (!selectedStudentId || isPaymentModalOpen || isTransferModalOpen) return undefined;
+    const frame = window.requestAnimationFrame(() => scrollToElement(detailsRef.current));
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedStudentId, isPaymentModalOpen, isTransferModalOpen, scrollToElement]);
+
+  const restoreStudentRow = useCallback(() => {
+    const origin = scrollOriginRef.current;
+    if (!origin) return;
+    window.requestAnimationFrame(() => {
+      // The detail section changes main's height. A second frame waits for its
+      // removal before calculating the source row's final position.
+      window.requestAnimationFrame(() => {
+        const row = studentRowRefs.current.get(origin.id);
+        if (row?.isConnected) scrollToElement(row);
+        else window.scrollTo({ top: origin.scrollY, behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      });
+    });
+  }, [scrollToElement]);
+
+  const closeStudentDetails = useCallback(() => {
+    setSelectedStudent(null);
+    restoreStudentRow();
+  }, [restoreStudentRow]);
+
+  const openStudentDetails = useCallback((student) => {
+    if (selectedStudent?.id === student.id) {
+      closeStudentDetails();
+      return;
+    }
+    scrollOriginRef.current = { id: student.id, scrollY: window.scrollY };
+    setStudentDetailsError('');
+    setSelectedStudent(student);
+  }, [closeStudentDetails, selectedStudent?.id]);
+
+  const handleEditOpen = useCallback(() => scrollToElement(detailsRef.current), [scrollToElement]);
 
   const { data: groups, isLoading } = useQuery({
     queryKey: ['groups', statusFilter, normalizedStudentNameSearch],
@@ -71,7 +124,7 @@ const Groups = () => {
   const createGroupMutation = useMutation({
     mutationFn: (data) => groupsAPI.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['groups']);
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
       setIsGroupModalOpen(false);
       setGroupFormData(newGroupForm());
       setGroupFormError('');
@@ -111,11 +164,11 @@ const Groups = () => {
       ? groupFormData.customTechnology.trim()
       : groupFormData.technology;
     if (!groupFormData.scheduleDays.length || !groupFormData.scheduleTime) {
-      setGroupFormError('Выберите дни недели и укажите время занятий.');
+      setGroupFormError('Аптанын күндөрүн жана сабактын убактысын көрсөтүңүз.');
       return;
     }
     if (!technology) {
-      setGroupFormError('Укажите направление группы.');
+      setGroupFormError('Топтун багытын көрсөтүңүз.');
       return;
     }
     setGroupFormError('');
@@ -141,8 +194,8 @@ const Groups = () => {
       amount: first_payment_type === 'payment' ? (first_payment_amount || '0') : '0',
     }, idempotencyKey),
     onSuccess: async () => {
-      queryClient.invalidateQueries(['students']);
-      queryClient.invalidateQueries(['groups']);
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
       // Перезагрузить студентов группы
       if (selectedGroup?.id) {
         // Сбросить кэш и перезагрузить
@@ -166,7 +219,7 @@ const Groups = () => {
   const makePaymentMutation = useMutation({
     mutationFn: ({ studentId, amount }) => studentsAPI.makePayment(studentId, { amount }),
     onSuccess: () => {
-      queryClient.invalidateQueries(['students']);
+      queryClient.invalidateQueries({ queryKey: ['students'] });
       setIsPaymentModalOpen(false);
       setPaymentFormData({ amount: '' });
       setSelectedStudent(null);
@@ -194,13 +247,14 @@ const Groups = () => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
       queryClient.invalidateQueries({ queryKey: ['groups'] });
     },
+    onError: () => setStudentDetailsError('Окуучунун абалын жаңыртуу мүмкүн болгон жок. Маалыматтар өзгөргөн жок.'),
   });
 
   const transferStudentMutation = useMutation({
     mutationFn: ({ studentId, groupId }) => studentsAPI.transferGroup(studentId, groupId),
     onSuccess: () => {
-      queryClient.invalidateQueries(['students']);
-      queryClient.invalidateQueries(['groups']);
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
       // Reload all expanded groups
       Object.keys(expandedGroups).forEach(groupId => {
         if (expandedGroups[groupId]) {
@@ -215,7 +269,7 @@ const Groups = () => {
   const changeGroupStatusMutation = useMutation({
     mutationFn: ({ groupId, status }) => groupsAPI.changeStatus(groupId, status),
     onSuccess: () => {
-      queryClient.invalidateQueries(['groups']);
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
     },
   });
 
@@ -233,6 +287,25 @@ const Groups = () => {
       setLoadingStudents(prev => ({ ...prev, [groupId]: false }));
     }
   };
+
+  const applyStudentUpdate = useCallback((updated) => {
+    if (!updated || typeof updated !== 'object' || !updated.id) {
+      console.error('Student update callback received an invalid response:', updated);
+      setStudentDetailsError('Окуучунун карточкасы жаңыртылган жок: CRM толук эмес маалымат кайтарды. Баракчаны жаңыртып, ката кайталанса администраторго кайрылыңыз.');
+      return false;
+    }
+    setStudentDetailsError('');
+    setSelectedStudent((previous) => previous?.id === updated.id ? updated : previous);
+    setGroupStudents((previous) => Object.fromEntries(Object.entries(previous).map(([groupId, page]) => [groupId, {
+      ...page,
+      results: page.results?.map((item) => item.id === updated.id ? updated : item),
+    }])));
+    queryClient.setQueriesData({ queryKey: ['students'] }, (previous) => previous?.results
+      ? { ...previous, results: previous.results.map((item) => item.id === updated.id ? updated : item) }
+      : previous);
+    queryClient.invalidateQueries({ queryKey: ['groups'] });
+    return true;
+  }, [queryClient]);
 
   const loadStudentTransactions = async (studentId) => {
     if (studentTransactions[studentId]) return; // Already loaded
@@ -263,10 +336,6 @@ const Groups = () => {
     }
   };
 
-  const toggleStudentDetails = (student) => {
-    setSelectedStudent((current) => current?.id === student.id ? null : student);
-  };
-
   const getStatusBadge = (status) => {
     const styles = {
       active: 'bg-green-100 text-green-800 border-green-200',
@@ -274,15 +343,10 @@ const Groups = () => {
       completed: 'bg-violet-100 text-violet-800 border-violet-200',
       archived: 'bg-gray-100 text-gray-800 border-gray-200',
     };
-    const labels = {
-      active: '✓ Активный',
-      frozen: '❄ Тоңдурулган',
-      completed: '✓ Завершил обучение',
-      archived: '✕ Архивирован',
-    };
+    const icons = { active: '✓', frozen: '❄', completed: '✓', archived: '✕' };
     return (
       <span className={`px-3 py-1 text-xs font-medium rounded-full border ${styles[status] || styles.active}`}>
-        {labels[status] || labels.active}
+        {icons[status] || icons.active} {learningStatusLabel(status || 'active')}
       </span>
     );
   };
@@ -309,14 +373,10 @@ const Groups = () => {
       completed: 'bg-blue-100 text-blue-800 border-blue-200',
       archived: 'bg-gray-100 text-gray-800 border-gray-200',
     };
-    const labels = {
-      active: '🟢 Активдүү',
-      completed: '✓ Аяктады',
-      archived: '📦 Архивделген',
-    };
+    const icons = { active: '🟢', completed: '✓', archived: '📦' };
     return (
       <span className={`px-3 py-1 text-xs font-medium rounded-full border ${styles[status] || styles.active}`}>
-        {labels[status] || labels.active}
+        {icons[status] || icons.active} {learningStatusLabel(status || 'active')}
       </span>
     );
   };
@@ -427,7 +487,7 @@ const Groups = () => {
                           <h3 className="text-lg font-medium text-gray-900">{group.name}</h3>
                           {getGroupStatusBadge(group.status || 'active')}
                         </div>
-                        <p className="text-sm text-gray-500">{group.technology || group.subject} • {group.duration_months ? `${group.duration_months} мес.` : group.schedule} {group.study_days_per_week ? `• ${group.study_days_per_week} дн./нед.` : ''}</p>
+                        <p className="text-sm text-gray-500">{group.technology || group.subject} • {group.duration_months ? `${group.duration_months} ай` : group.schedule} {group.study_days_per_week ? `• аптасына ${group.study_days_per_week} күн` : ''}</p>
                       </div>
                       <div className="flex items-center space-x-6">
                         <div className="text-center">
@@ -441,9 +501,9 @@ const Groups = () => {
                               onChange={(e) => handleGroupStatusChange(group.id, e.target.value, e)}
                               className="text-xs border border-gray-300 rounded px-2 py-1 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                              <option value="active">Активдүү</option>
-                              <option value="completed">Аяктады</option>
-                              <option value="archived">Архивделген</option>
+                              <option value="active">{learningStatusLabel('active')}</option>
+                              <option value="completed">{learningStatusLabel('completed')}</option>
+                              <option value="archived">{learningStatusLabel('archived')}</option>
                             </select>
                           </div>
                         )}
@@ -487,7 +547,7 @@ const Groups = () => {
                               
                               return (
                                 <Fragment key={student.id}>
-                                  <tr key={student.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => toggleStudent(student.id)}>
+                                  <tr ref={(element) => { if (element) studentRowRefs.current.set(student.id, element); else studentRowRefs.current.delete(student.id); }} className="hover:bg-gray-50 cursor-pointer" onClick={() => toggleStudent(student.id)}>
                                     <td className="px-4 py-4 whitespace-nowrap">
                                       <div className="flex items-center">
                                         <div className="flex-shrink-0">
@@ -513,10 +573,10 @@ const Groups = () => {
                                               onChange={(e) => handleStatusChange(student.id, e.target.value, e)}
                                               className="text-xs border border-gray-300 rounded px-2 py-1 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             >
-                                              <option value="active">Активный</option>
-                                              <option value="frozen">Тоңдурулган</option>
-                                              <option value="completed">Завершил обучение</option>
-                                              <option value="archived">Архивирован</option>
+                                              <option value="active">{learningStatusLabel('active')}</option>
+                                              <option value="frozen">{learningStatusLabel('frozen')}</option>
+                                              <option value="completed">{learningStatusLabel('completed')}</option>
+                                              <option value="archived">{learningStatusLabel('archived')}</option>
                                             </select>
                                           </div>
                                         )}
@@ -524,18 +584,18 @@ const Groups = () => {
                                       <div className="mt-1">{student.phone || '—'}</div>
                                     </td>
                                     <td className="px-4 py-4 whitespace-nowrap">
-                                      <span className="text-sm font-semibold">{student.payment_status === 'unknown' ? 'График түзүлгөн эмес' : student.payment_status === 'overdue' ? '🔴 Мөөнөтү өткөн' : student.payment_status === 'upcoming' ? '🟡 Кийинки төлөм' : student.payment_status}</span>
+                                      <span className="text-sm font-semibold">{student.payment_status === 'overdue' ? '🔴 ' : student.payment_status === 'upcoming' ? '🟡 ' : ''}{paymentStatusLabel(student.payment_status)}</span>
                                     </td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm"><div>{student.course_price === null || student.course_price === undefined || student.course_price === '' ? '—' : `${parseFloat(student.course_price).toLocaleString('ru-RU')} сом`}</div><b className="text-green-600">{parseFloat(student.amount_paid_total || 0).toLocaleString('ru-RU')} сом</b></td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm"><div>{parseFloat(student.financial_summary?.due_now || 0).toLocaleString('ru-RU')} сом</div><b className="text-red-600">{parseFloat(student.financial_summary?.overdue_amount || 0).toLocaleString('ru-RU')} сом</b></td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm"><div>{student.financial_summary?.contract_remaining == null ? '—' : `${parseFloat(student.financial_summary.contract_remaining).toLocaleString('ru-RU')} сом`}</div><span className="text-gray-500">{student.financial_summary?.next_payment_date || '—'}</span></td>
+                                    <td className="px-4 py-4 whitespace-nowrap text-sm"><div>{student.course_price === null || student.course_price === undefined || student.course_price === '' ? '—' : `${parseFloat(student.course_price).toLocaleString('ky-KG')} сом`}</div><b className="text-green-600">{parseFloat(student.amount_paid_total || 0).toLocaleString('ky-KG')} сом</b></td>
+                                    <td className="px-4 py-4 whitespace-nowrap text-sm"><div>{parseFloat(student.financial_summary?.due_now || 0).toLocaleString('ky-KG')} сом</div><b className="text-red-600">{parseFloat(student.financial_summary?.overdue_amount || 0).toLocaleString('ky-KG')} сом</b></td>
+                                    <td className="px-4 py-4 whitespace-nowrap text-sm"><div>{student.financial_summary?.contract_remaining == null ? '—' : `${parseFloat(student.financial_summary.contract_remaining).toLocaleString('ky-KG')} сом`}</div><span className="text-gray-500">{student.financial_summary?.next_payment_date || '—'}</span></td>
                                     {user?.role === 'cashier' && (
                                       <td className="px-4 py-4 text-right">
                                         <div className="flex min-w-[272px] flex-wrap justify-end gap-2">
                                           <button onClick={(e) => { e.stopPropagation(); setSelectedStudent(student); setIsPaymentModalOpen(true); }} className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
                                             <BanknotesIcon className="h-4 w-4 mr-1" />Төлөм
                                           </button>
-                                          <button onClick={(e) => { e.stopPropagation(); toggleStudentDetails(student); }} className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md text-blue-700 bg-blue-50">Карточка</button>
+                                          <button onClick={(e) => { e.stopPropagation(); openStudentDetails(student, e); }} className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md text-blue-700 bg-blue-50">Маалымат</button>
                                           <button onClick={(e) => handleTransferStudent(student, e)} className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200">
                                             🔄 Которуу
                                           </button>
@@ -561,15 +621,15 @@ const Groups = () => {
                                                     <div className={`flex-shrink-0 w-2 h-2 rounded-full ${tx.type === 'register' ? 'bg-blue-500' : 'bg-green-500'}`}></div>
                                                     <div>
                                                       <p className="text-sm font-medium text-gray-900">
-                                                        {tx.type === 'register' ? '📝 Каттоо' : '💵 Төлөм'}
+                                                        {tx.type === 'register' ? '📝' : '💵'} {formatTransactionType(tx.type)}
                                                       </p>
                                                       <p className="text-xs text-gray-500">
-                                                        {new Date(tx.created_at).toLocaleString('ru-RU')}
+                                                        {new Date(tx.created_at).toLocaleString('ky-KG')}
                                                       </p>
                                                     </div>
                                                   </div>
                                                   <div className="text-right">
-                                                    <p className="text-lg font-bold text-green-600">{parseFloat(tx.amount).toLocaleString('ru-RU')} сом</p>
+                                                    <p className="text-lg font-bold text-green-600">{parseFloat(tx.amount).toLocaleString('ky-KG')} сом</p>
                                                     <p className="text-xs text-gray-500">Кассир: {tx.cashier_name}</p>
                                                   </div>
                                                 </div>
@@ -590,7 +650,7 @@ const Groups = () => {
                           </tbody>
                         </table>
                         </div>
-                        <div className="mt-4 px-6 py-3 bg-gray-50 rounded-lg"><div className="flex justify-between items-center"><span className="text-sm font-medium text-gray-700">Жалпы сумма:</span><span className="text-xl font-bold text-green-600">{students.results.reduce((sum, s) => sum + parseFloat(s.amount_paid_total || 0), 0).toLocaleString('ru-RU')} сом</span></div></div>
+                        <div className="mt-4 px-6 py-3 bg-gray-50 rounded-lg"><div className="flex justify-between items-center"><span className="text-sm font-medium text-gray-700">Жалпы сумма:</span><span className="text-xl font-bold text-green-600">{students.results.reduce((sum, s) => sum + parseFloat(s.amount_paid_total || 0), 0).toLocaleString('ky-KG')} сом</span></div></div>
                       </>
                     ) : (
                       <div className="text-center py-12"><AcademicCapIcon className="mx-auto h-12 w-12 text-gray-300" /><h3 className="mt-2 text-sm font-medium text-gray-900">Окуучулар жок</h3><p className="mt-1 text-sm text-gray-500">Бул топто али окуучулар каттал элек</p></div>
@@ -614,22 +674,7 @@ const Groups = () => {
     </div>
 
     {studentDetailsError && <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{studentDetailsError}</p>}
-    {selectedStudent && !isPaymentModalOpen && !isTransferModalOpen && <StudentDetails student={selectedStudent} onClose={() => setSelectedStudent(null)} onChanged={(updated) => {
-      if (!updated || typeof updated !== 'object' || !updated.id) {
-        console.error('Student update callback received an invalid response:', updated)
-        setStudentDetailsError('Карточка ученика не обновлена: CRM вернула неполные данные. Финансовые записи не изменены. Обновите страницу и обратитесь к администратору, если ошибка повторится.')
-        return
-      }
-      setStudentDetailsError('')
-      setSelectedStudent(updated)
-      setGroupStudents((previous) => Object.fromEntries(Object.entries(previous).map(([groupId, page]) => [groupId, {
-        ...page,
-        results: page.results?.map((item) => item.id === updated.id ? updated : item),
-      }])))
-      queryClient.invalidateQueries({ queryKey: ['students'] })
-      queryClient.invalidateQueries({ queryKey: ['groups'] })
-      if (updated.group) loadGroupStudents(updated.group)
-    }} />}
+    {selectedStudent && !isPaymentModalOpen && !isTransferModalOpen && <StudentDetails student={selectedStudent} containerRef={detailsRef} onClose={closeStudentDetails} onChanged={applyStudentUpdate} onEditOpen={handleEditOpen} />}
 
     {/* Модальное окно создания группы */}
     {isGroupModalOpen && (
@@ -646,33 +691,33 @@ const Groups = () => {
                 <label className="block text-sm font-medium text-gray-700">Технология</label>
                 <select value={groupFormData.technology} onChange={(e) => setGroupFormData({ ...groupFormData, technology: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                   {TECHNOLOGIES.map((technology) => <option key={technology} value={technology}>{technology}</option>)}
-                  <option value="other">Другое</option>
+                  <option value="other">Башка</option>
                 </select>
               </div>
               {groupFormData.technology === 'other' && <div>
-                <label className="block text-sm font-medium text-gray-700">Другое направление</label>
+                <label className="block text-sm font-medium text-gray-700">Башка багыт</label>
                 <input type="text" required value={groupFormData.customTechnology} onChange={(e) => setGroupFormData({ ...groupFormData, customTechnology: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
               </div>}
               <fieldset>
-                <legend className="block text-sm font-medium text-gray-700">Расписание: дни недели</legend>
+                <legend className="block text-sm font-medium text-gray-700">Сабактардын тартиби: аптанын күндөрү</legend>
                 <div className="mt-2 flex flex-wrap gap-2">{WEEKDAYS.map((day) => <label key={day.value} className={`cursor-pointer rounded-md border px-3 py-2 text-sm ${groupFormData.scheduleDays.includes(day.value) ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-300 bg-white text-gray-700'}`}><input type="checkbox" className="sr-only" checked={groupFormData.scheduleDays.includes(day.value)} onChange={() => toggleScheduleDay(day.value)} />{day.label}</label>)}</div>
               </fieldset>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Время занятий</label>
+                <label className="block text-sm font-medium text-gray-700">Сабактын убактысы</label>
                 <input type="text" required placeholder="19:00–21:00" value={groupFormData.scheduleTime} onChange={(e) => setGroupFormData({ ...groupFormData, scheduleTime: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
-                <p className="mt-1 text-xs text-gray-500">Дни выбираются отдельно; API получает читаемую строку расписания.</p>
+                <p className="mt-1 text-xs text-gray-500">Күндөр өзүнчө тандалат; API окула турган сабактардын тартибин алат.</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <label className="block text-sm font-medium text-gray-700">Длительность, мес.<input type="number" required min="1" value={groupFormData.duration_months} onChange={(e) => setGroupTiming({ duration_months: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" /></label>
-                <div className="block text-sm font-medium text-gray-700">Занятий в неделю<div className="mt-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-gray-700">{groupFormData.scheduleDays.length || '—'}</div></div>
+                <label className="block text-sm font-medium text-gray-700">Узактыгы, ай<input type="number" required min="1" value={groupFormData.duration_months} onChange={(e) => setGroupTiming({ duration_months: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" /></label>
+                <div className="block text-sm font-medium text-gray-700">Аптадагы сабактар<div className="mt-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-gray-700">{groupFormData.scheduleDays.length || '—'}</div></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <label className="block text-sm font-medium text-gray-700">Начало<input type="date" required value={groupFormData.start_date} onChange={(e) => setGroupTiming({ start_date: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" /></label>
-                <label className="block text-sm font-medium text-gray-700">Окончание<input type="date" value={groupFormData.end_date} onChange={(e) => { setIsEndDateManual(true); setGroupFormData({ ...groupFormData, end_date: e.target.value }); }} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" /></label>
+                <label className="block text-sm font-medium text-gray-700">Башталышы<input type="date" required value={groupFormData.start_date} onChange={(e) => setGroupTiming({ start_date: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" /></label>
+                <label className="block text-sm font-medium text-gray-700">Аяктоосу<input type="date" value={groupFormData.end_date} onChange={(e) => { setIsEndDateManual(true); setGroupFormData({ ...groupFormData, end_date: e.target.value }); }} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" /></label>
               </div>
-              <label className="block text-sm font-medium text-gray-700">Всего занятий <span className="text-xs text-gray-500">(рассчитано; можно скорректировать)</span><input type="number" min="1" value={groupFormData.total_lessons || (groupFormData.scheduleDays.length && groupFormData.duration_months ? groupFormData.scheduleDays.length * Number(groupFormData.duration_months) * 4 : '')} onChange={(e) => setGroupFormData({ ...groupFormData, total_lessons: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" /></label>
+              <label className="block text-sm font-medium text-gray-700">Сабактардын жалпы саны <span className="text-xs text-gray-500">(эсептелди, өзгөртсө болот)</span><input type="number" min="1" value={groupFormData.total_lessons || (groupFormData.scheduleDays.length && groupFormData.duration_months ? groupFormData.scheduleDays.length * Number(groupFormData.duration_months) * 4 : '')} onChange={(e) => setGroupFormData({ ...groupFormData, total_lessons: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" /></label>
               {groupFormError && <p role="alert" className="text-sm text-red-700">{groupFormError}</p>}
-              {createGroupMutation.isError && <p role="alert" className="text-sm text-red-700">{createGroupMutation.error?.response?.data?.detail || 'Не удалось создать группу.'}</p>}
+              {createGroupMutation.isError && <p role="alert" className="text-sm text-red-700">Топту түзүү мүмкүн болгон жок. Маалыматтарды текшерип, кайра аракет кылыңыз.</p>}
             </div>
             <div className="mt-6 flex justify-end space-x-3">
               <button type="button" onClick={() => setIsGroupModalOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Жокко чыгаруу</button>
@@ -703,7 +748,7 @@ const Groups = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Телефон <span className="text-xs text-gray-500">(необязательно)</span></label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Телефон <span className="text-xs text-gray-500">(милдеттүү эмес)</span></label>
                 <input type="tel" value={studentFormData.phone} onChange={(e) => setStudentFormData({ ...studentFormData, phone: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="+996700000000" />
               </div>
               <div>
@@ -717,22 +762,22 @@ const Groups = () => {
                 <p className="mt-1 text-xs text-gray-500">Бронь жалпы төлөмгө кирет жана келишимдин калдыгын азайтат.</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Стоимость курса <span className="text-xs text-gray-500">(необязательно)</span></label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Курстун баасы <span className="text-xs text-gray-500">(милдеттүү эмес)</span></label>
                 <input type="number" min="0" step="0.01" value={studentFormData.course_price} onChange={(e) => setStudentFormData({ ...studentFormData, course_price: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="0" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Ассистент <span className="text-xs text-gray-500">(необязательно)</span></label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Ассистент <span className="text-xs text-gray-500">(милдеттүү эмес)</span></label>
                 <input type="text" value={studentFormData.assistant_name} onChange={(e) => setStudentFormData({ ...studentFormData, assistant_name: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Статус договора</label>
-                <select value={studentFormData.contract_status} onChange={(e) => setStudentFormData({ ...studentFormData, contract_status: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"><option value="unknown">Не указан</option><option value="signed">Подписан</option><option value="not_signed">Не подписан</option></select>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Келишимдин абалы</label>
+                <select value={studentFormData.contract_status} onChange={(e) => setStudentFormData({ ...studentFormData, contract_status: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"><option value="unknown">{contractStatusLabel('unknown')}</option><option value="signed">{contractStatusLabel('signed')}</option><option value="not_signed">{contractStatusLabel('not_signed')}</option></select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Комментарий <span className="text-xs text-gray-500">(необязательно)</span></label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Түшүндүрмө <span className="text-xs text-gray-500">(милдеттүү эмес)</span></label>
                 <textarea value={studentFormData.comment} onChange={(e) => setStudentFormData({ ...studentFormData, comment: e.target.value })} rows="3" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
               </div>
-              {registerStudentMutation.isError && <p role="alert" className="text-sm text-red-700">{registerStudentMutation.error?.response?.data?.detail || 'Не удалось зарегистрировать ученика.'}</p>}
+              {registerStudentMutation.isError && <p role="alert" className="text-sm text-red-700">Окуучуну каттоо мүмкүн болгон жок. Маалыматтарды текшерип, кайра аракет кылыңыз.</p>}
             </div>
             
             <div className="mt-6 flex justify-end space-x-3">
@@ -759,15 +804,15 @@ const Groups = () => {
     {technologyEditor && (
       <div className="fixed inset-0 z-50 h-full w-full overflow-y-auto bg-gray-600 bg-opacity-50" onClick={() => setTechnologyEditor(null)}>
         <div className="relative top-20 mx-auto w-96 rounded-lg border bg-white p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
-          <h3 className="text-xl font-bold text-gray-900">Технология группы</h3>
-          <p className="mt-1 text-sm text-gray-500">{technologyEditor.name}. Изменение не затрагивает учеников, платежи или историю.</p>
-          <label className="mt-4 block text-sm font-medium text-gray-700">Направление
+          <h3 className="text-xl font-bold text-gray-900">Топтун технологиясы</h3>
+          <p className="mt-1 text-sm text-gray-500">{technologyEditor.name}. Өзгөртүү окуучуларга, төлөмдөргө жана тарыхка таасир бербейт.</p>
+          <label className="mt-4 block text-sm font-medium text-gray-700">Багыт
             <select defaultValue={technologyEditor.technology || technologyEditor.subject || ''} onChange={(e) => setTechnologyEditor({ ...technologyEditor, nextTechnology: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-              <option value="">Не указано</option>{TECHNOLOGIES.map((technology) => <option key={technology} value={technology}>{technology}</option>)}
+              <option value="">Көрсөтүлгөн эмес</option>{TECHNOLOGIES.map((technology) => <option key={technology} value={technology}>{technology}</option>)}
             </select>
           </label>
-          <div className="mt-6 flex justify-end gap-3"><button type="button" onClick={() => setTechnologyEditor(null)} className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700">Отмена</button><button type="button" disabled={updateTechnologyMutation.isPending} onClick={() => updateTechnologyMutation.mutate({ id: technologyEditor.id, technology: technologyEditor.nextTechnology ?? technologyEditor.technology ?? technologyEditor.subject ?? '' })} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white">Сохранить</button></div>
-          {updateTechnologyMutation.isError && <p role="alert" className="mt-3 text-sm text-red-700">Не удалось сохранить технологию.</p>}
+          <div className="mt-6 flex justify-end gap-3"><button type="button" onClick={() => setTechnologyEditor(null)} className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700">Жокко чыгаруу</button><button type="button" disabled={updateTechnologyMutation.isPending} onClick={() => updateTechnologyMutation.mutate({ id: technologyEditor.id, technology: technologyEditor.nextTechnology ?? technologyEditor.technology ?? technologyEditor.subject ?? '' })} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white">Сактоо</button></div>
+          {updateTechnologyMutation.isError && <p role="alert" className="mt-3 text-sm text-red-700">Технологияны сактоо мүмкүн болгон жок.</p>}
         </div>
       </div>
     )}
@@ -785,7 +830,7 @@ const Groups = () => {
               </div>
               <div className="bg-gray-50 p-3 rounded">
                 <p className="text-sm text-gray-600">Учурдагы баланс:</p>
-                <p className="text-xl font-bold text-green-600">{parseFloat(selectedStudent.amount_paid_total || 0).toLocaleString('ru-RU')} сом</p>
+                <p className="text-xl font-bold text-green-600">{parseFloat(selectedStudent.amount_paid_total || 0).toLocaleString('ky-KG')} сом</p>
               </div>
             </div>
             <div className="mt-6 flex justify-end space-x-3">

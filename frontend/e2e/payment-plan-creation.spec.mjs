@@ -1,3 +1,4 @@
+/* eslint-env node */
 import { expect, test } from '@playwright/test'
 
 const username = process.env.E2E_CASHIER_LOGIN
@@ -27,19 +28,19 @@ test('creating a payment plan refreshes StudentDetails and Groups without a page
   await page.goto('/groups')
   await page.getByRole('heading', { name: groupName, exact: true }).click()
   const studentRow = page.getByRole('row').filter({ hasText: studentName })
-  await studentRow.getByRole('button', { name: 'Карточка', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Настроить график', exact: true })).toBeVisible()
+  await studentRow.getByRole('button', { name: 'Маалымат', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'График түзүү', exact: true })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Настроить график', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Настроить график оплаты', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'График түзүү', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Төлөм графигин түзүү', exact: true })).toBeVisible()
   await Promise.all([
     page.waitForResponse((response) => response.url().includes(`/students/${studentId}/payment-plan/`) && response.request().method() === 'POST' && response.status() === 201),
     page.getByRole('button', { name: 'Сохранить график', exact: true }).click(),
   ])
 
-  await expect(page.getByRole('heading', { name: 'График оплаты', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Төлөм графиги', exact: true })).toBeVisible()
   await expect(studentRow).not.toContainText('График түзүлгөн эмес')
-  await expect(page.getByText('График оплаты сохранён', { exact: true })).toBeVisible()
+  await expect(page.getByText('Төлөм графиги сакталды', { exact: true })).toBeVisible()
   expect(runtimeErrors.filter((message) => /Cannot read properties of undefined|updated\.id/.test(message))).toEqual([])
 })
 
@@ -59,8 +60,8 @@ test('a saved plan stays visible when the canonical Student refresh fails', asyn
   await page.goto('/groups')
   await page.getByRole('heading', { name: groupName, exact: true }).click()
   const studentRow = page.getByRole('row').filter({ hasText: refreshFailureStudentName })
-  await studentRow.getByRole('button', { name: 'Карточка', exact: true }).click()
-  await page.getByRole('button', { name: 'Настроить график', exact: true }).click()
+  await studentRow.getByRole('button', { name: 'Маалымат', exact: true }).click()
+  await page.getByRole('button', { name: 'График түзүү', exact: true }).click()
 
   await page.route(`**/students/${refreshFailureStudentId}/`, async (route) => {
     if (route.request().method() === 'GET') {
@@ -74,8 +75,8 @@ test('a saved plan stays visible when the canonical Student refresh fails', asyn
     page.getByRole('button', { name: 'Сохранить график', exact: true }).click(),
   ])
 
-  await expect(page.getByText('График сохранён, но не удалось обновить данные. Обновите страницу.', { exact: true })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'График оплаты', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Настроить график', exact: true })).toHaveCount(0)
+  await expect(page.getByText('График сакталды, бирок маалыматтарды жаңыртуу мүмкүн болгон жок. Баракчаны жаңыртыңыз.', { exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Төлөм графиги', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'График түзүү', exact: true })).toHaveCount(0)
   expect(runtimeErrors.filter((message) => /Cannot read properties of undefined|updated\.id/.test(message))).toEqual([])
 })

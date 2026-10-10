@@ -1,5 +1,6 @@
 import { format, parseISO } from 'date-fns'
 import { ru } from 'date-fns/locale'
+import { KY, kyLabel } from './ky'
 
 export const formatCurrency = (amount) => {
   return new Intl.NumberFormat('ky-KG', {
@@ -32,10 +33,5 @@ export const formatRole = (role) => {
 }
 
 export const formatTransactionType = (type) => {
-  const types = {
-    booking: 'Бронь',
-    register: 'Регистрация',
-    topup: 'Доплата',
-  }
-  return types[type] || type
+  return kyLabel(KY.transactionType, type, 'Белгисиз операция')
 }
