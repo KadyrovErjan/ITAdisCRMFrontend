@@ -151,6 +151,10 @@ export const groupsAPI = {
     const response = await api.get(`/groups/${id}/students/`, { params });
     return response.data;
   },
+  exportExcel: async () => {
+    const response = await api.get('/groups/export/', { responseType: 'blob' });
+    return response.data;
+  },
 }
 
 // Students API

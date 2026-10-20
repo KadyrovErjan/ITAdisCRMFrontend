@@ -55,6 +55,8 @@ const Groups = () => {
   const [studentNameSearch, setStudentNameSearch] = useState('');
   const [groupFormData, setGroupFormData] = useState(newGroupForm);
   const [groupFormError, setGroupFormError] = useState('');
+  const [exportError, setExportError] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
   const [isEndDateManual, setIsEndDateManual] = useState(false);
   const [technologyEditor, setTechnologyEditor] = useState(null);
   const [studentRegistrationKey, setStudentRegistrationKey] = useState(() => freshKey());
@@ -388,6 +390,26 @@ const Groups = () => {
     }
   };
 
+  const downloadCrmExport = async () => {
+    setExportError('');
+    setIsExporting(true);
+    try {
+      const file = await groupsAPI.exportExcel();
+      const url = URL.createObjectURL(file);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'itadis-topтор.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setExportError('Excel файлын жүктөө мүмкүн болгон жок. Кайра аракет кылыңыз.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <>
     <div className="space-y-6">
@@ -451,6 +473,14 @@ const Groups = () => {
               📦 Архив
             </button>
           </div>
+          {user?.role === 'cashier' && <button
+            type="button"
+            onClick={downloadCrmExport}
+            disabled={isExporting}
+            className="inline-flex items-center rounded-md border border-green-700 px-4 py-2 text-sm font-medium text-green-800 shadow-sm hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isExporting ? 'Жүктөлүүдө...' : 'Excel жүктөө'}
+          </button>}
           {user?.role === 'cashier' && (
             <button onClick={() => setIsGroupModalOpen(true)} className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
               <PlusIcon className="-ml-1 mr-2 h-5 w-5" />Топ түзүү
@@ -458,6 +488,7 @@ const Groups = () => {
           )}
         </div>
       </div>
+      {exportError && <p role="alert" className="text-sm text-red-700">{exportError}</p>}
       {isLoading ? (
         <div className="text-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div></div>
       ) : (

@@ -1,10 +1,14 @@
+/* eslint-env node */
 import { defineConfig } from '@playwright/test'
+import { localE2EConfig } from './e2e/localOnly.mjs'
+
+const { baseURL } = localE2EConfig(process.env)
 
 export default defineConfig({
   testDir: './e2e',
   timeout: 30_000,
   use: {
-    baseURL: process.env.E2E_BASE_URL || 'http://127.0.0.1:5177',
+    baseURL,
     browserName: 'chromium',
     channel: 'chrome',
     headless: true,
